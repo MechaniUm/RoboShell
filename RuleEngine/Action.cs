@@ -80,6 +80,16 @@ namespace RuleEngineNet {
             }
         }
 
+        public void BeforeLog()
+        {
+            Log.Trace($"BEFORE {GetType().Name}.Execute()", Log.LogFlag.Debug);
+        }
+
+        public void AfterLog()
+        {
+            Log.Trace($"AFTER {GetType().Name}.Execute()", Log.LogFlag.Debug);
+        }
+
         public abstract void Initialize();
         public static Action ParseActionSequence(string actionsSequence) {
             // ReSharper disable once RedundantAssignment
@@ -345,10 +355,10 @@ namespace RuleEngineNet {
         }
 
         public override void Execute(State S) {
-            LogLib.Log.Trace($"BEFORE {GetType().Name}.Execute()");
+            BeforeLog();
             if (Expr != null) S.Assign(Var, Expr.Eval(S));
             if (Value != null) S.Assign(Var, S.EvalString(Value));
-            LogLib.Log.Trace($"AFTER {GetType().Name}.Execute()");
+            AfterLog();
         }
 
         public override void Initialize() {
@@ -372,9 +382,9 @@ namespace RuleEngineNet {
         }
 
         public override void Execute(State S) {
-            LogLib.Log.Trace($"BEFORE {GetType().Name}.Execute()");
+            BeforeLog();
             S.Remove(Var);
-            LogLib.Log.Trace($"AFTER {GetType().Name}.Execute()");
+            AfterLog();
         }
 
         public static Clear Parse(XElement X) {
@@ -386,7 +396,7 @@ namespace RuleEngineNet {
         public List<Action> Actions { get; set; }
 
         public override void Execute(State S) {
-            LogLib.Log.Trace($"BEFORE {GetType().Name}.Execute()");
+            BeforeLog();
             foreach (var x in Actions)
             {
                 x.Execute(S);
@@ -395,7 +405,7 @@ namespace RuleEngineNet {
                     x.ActiveAfterExecution = false;
                 }
             }
-            LogLib.Log.Trace($"AFTER {GetType().Name}.Execute()");
+            AfterLog();
         }
 
         protected bool? long_running;
@@ -432,14 +442,14 @@ namespace RuleEngineNet {
         public OneOf(IEnumerable<Action> Actions) : base(Actions) { }
 
         public override void Execute(State S) {
-            LogLib.Log.Trace($"BEFORE {GetType().Name}.Execute()");
+            BeforeLog();
             var x = Actions.OneOf();
             x.Execute(S);
             if (x.ActiveAfterExecution){
                 ActiveAfterExecution = true;
                 x.ActiveAfterExecution = false;
             }
-            LogLib.Log.Trace($"AFTER {GetType().Name}.Execute()");
+            AfterLog();
         }
     }
 
@@ -460,7 +470,7 @@ namespace RuleEngineNet {
 
         public override void Execute(State S)
         {
-            LogLib.Log.Trace($"BEFORE {GetType().Name}.Execute()");
+            BeforeLog();
             var rand = new Random();
             if (rand.Next(1, 101) > Probability)
             {
@@ -471,7 +481,7 @@ namespace RuleEngineNet {
             var textToSay = S.EvalString(Text);
             LogLib.Log.Trace("say: " + textToSay);
             SayHelper(textToSay, S);
-            LogLib.Log.Trace($"AFTER {GetType().Name}.Execute()");
+            AfterLog();
         }
 
         public static Say Parse(XElement X) {
@@ -479,25 +489,21 @@ namespace RuleEngineNet {
         }
         public async void SayHelper(String Text, State S)
         {
-            LogLib.Log.Trace("1");
+            Log.Trace($"BEFORE {GetType().Name}.SayHelper()", Log.LogFlag.Debug);
             while (isPlaying)
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(300));
             }
-            LogLib.Log.Trace("2");
             isPlaying = true;
             S.Assign("isPlaying", "True");
-            LogLib.Log.Trace("3");
             await Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunTaskAsync(() => Speaker.Speak(Text));
-            LogLib.Log.Trace("4");
             await Task.Delay(TimeSpan.FromMilliseconds(500));
-            LogLib.Log.Trace("5");
             while (Speaker.Media.CurrentState != MediaElementState.Closed && Speaker.Media.CurrentState != MediaElementState.Stopped && Speaker.Media.CurrentState != MediaElementState.Paused) {
                 await Task.Delay(TimeSpan.FromMilliseconds(500));
             }
-            LogLib.Log.Trace("6");
             isPlaying = false;
             S.Assign("isPlaying", "False");
+            Log.Trace($"AFTER {GetType().Name}.SayHelper()", Log.LogFlag.Debug);
         }
 
     }
@@ -516,7 +522,7 @@ namespace RuleEngineNet {
 
         public override void Execute(State S)
         {
-            LogLib.Log.Trace($"BEFORE {GetType().Name}.Execute()");
+            BeforeLog();
             if (S.ContainsKey(correctAnswersVarName) && S.ContainsKey(realAnswersVarName)) {
                 var tmp1 = S[correctAnswersVarName];
                 var tmp2 = S[realAnswersVarName];
@@ -545,7 +551,7 @@ namespace RuleEngineNet {
                 S["comparisonRes"] = res;
                 S["comparisonErrors"] = errors;
             }
-            LogLib.Log.Trace($"AFTER {GetType().Name}.Execute()");
+            AfterLog();
         }
 
 
@@ -554,9 +560,9 @@ namespace RuleEngineNet {
     public class ShutUp : Action {
         public static UWPLocalSpeaker Speaker { get; set; }
         public override void Execute(State S) {
-            LogLib.Log.Trace($"BEFORE {GetType().Name}.Execute()");
+            BeforeLog();
             Speaker.ShutUp();
-            LogLib.Log.Trace($"AFTER {GetType().Name}.Execute()");
+            AfterLog();
         }
 
         public override void Initialize() { }
@@ -593,7 +599,7 @@ namespace RuleEngineNet {
 
         public override void Execute(State S)
         {
-            LogLib.Log.Trace($"BEFORE {GetType().Name}.Execute()");
+            BeforeLog();
             var rand = new Random();
             if (rand.Next(1, 101) > Probability)
             {
@@ -606,7 +612,7 @@ namespace RuleEngineNet {
             else {
                 Speaker.Play(FileName, _duration);
             }
-            LogLib.Log.Trace($"AFTER {GetType().Name}.Execute()");
+            AfterLog();
         }
 
         public static Play Parse(XElement X, int _prob) {
@@ -618,9 +624,9 @@ namespace RuleEngineNet {
     public class StayActive : Action
     {
         public override void Execute(State S) {
-            LogLib.Log.Trace($"BEFORE {GetType().Name}.Execute()");
+            BeforeLog();
             ActiveAfterExecution = true;
-            LogLib.Log.Trace($"AFTER {GetType().Name}.Execute()");
+            AfterLog();
         }
         public override void Initialize() { }
 
@@ -639,9 +645,9 @@ namespace RuleEngineNet {
         }
 
         public override void Execute(State S) {
-            LogLib.Log.Trace($"BEFORE {GetType().Name}.Execute()");
+            BeforeLog();
             Executor(Command, Param);
-            LogLib.Log.Trace($"AFTER {GetType().Name}.Execute()");
+            AfterLog();
         }
 
         public override void Initialize() { }
@@ -680,7 +686,7 @@ namespace RuleEngineNet {
 
         public override void Execute(State S)
         {
-            LogLib.Log.Trace($"BEFORE {GetType().Name}.Execute()");
+            BeforeLog();
             LogLib.Log.Trace($"GPIO_TASK {task.Status}");
             var rand = new Random();
             int tmp = rand.Next(1, 101);
@@ -732,7 +738,7 @@ namespace RuleEngineNet {
                 executing = false;
             });
             LogLib.Log.Trace("Exited GPIO");
-            LogLib.Log.Trace($"AFTER {GetType().Name}.Execute()");
+            AfterLog();
         }
 
         public static GPIO Parse(XElement X) {
@@ -819,9 +825,9 @@ namespace RuleEngineNet {
 
 
         public override void Execute(State S) {
-            LogLib.Log.Trace($"BEFORE {GetType().Name}.Execute()");
+            BeforeLog();
             Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunTaskAsync(() => (QuizHelper(S)));
-            LogLib.Log.Trace($"AFTER {GetType().Name}.Execute()");
+            AfterLog();
         }
 
         private async Task QuizHelper(State S)

@@ -20,6 +20,8 @@ using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
+using LogLib;
+
 // Это приложение получает ваше изображение с веб-камеры и
 // распознаёт эмоции на нём, обращаясь к Cognitive Services
 // Предварительно с помощью Windows UWP API анализируется, есть
@@ -373,7 +375,9 @@ namespace RoboShell
         }
 
         async Task<bool> RecognizeFace() {
+            Log.Trace($"BEFORE RecognizeFace()", Log.LogFlag.Debug);
             if (!IsFacePresent) {
+                Log.Trace($"AFTER RecognizeFace() (!IsFacePresent)", Log.LogFlag.Debug);
                 return false;
             }
 
