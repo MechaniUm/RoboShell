@@ -80,14 +80,14 @@ namespace RuleEngineNet {
             }
         }
 
-        public void BeforeLog()
+        public void BeforeLog(string method = "Execute")
         {
-            Log.Trace($"BEFORE {GetType().Name}.Execute()", Log.LogFlag.Debug);
+            Log.Trace($"BEFORE {GetType().Name}.{method}()", Log.LogFlag.Debug);
         }
 
-        public void AfterLog()
+        public void AfterLog(string method = "Execute")
         {
-            Log.Trace($"AFTER {GetType().Name}.Execute()", Log.LogFlag.Debug);
+            Log.Trace($"AFTER {GetType().Name}.{method}()", Log.LogFlag.Debug);
         }
 
         public abstract void Initialize();
