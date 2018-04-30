@@ -136,6 +136,7 @@ namespace RoboShell
         // Function used to execute extensions commands of rule engine
         private async void ExExecutor(string Cmd, string Param)
         {
+            Log.Trace($"BEFORE {GetType().Name}.ExExecutor(): Cmd='{Cmd}', Param='{Param}'", Log.LogFlag.Debug);
             switch (Cmd)
             {
                 case "Recapture":
@@ -152,6 +153,7 @@ namespace RoboShell
                     else await RecognizeFace();
                     break;
             }
+            Log.Trace($"AFTER {GetType().Name}.ExExecutor(): Cmd='{Cmd}', Param='{Param}'", Log.LogFlag.Debug);
         }
 
         private void ArduinoInput(object sender, object e)
@@ -168,7 +170,9 @@ namespace RoboShell
                 }
             }
             if (input != "0000") {
-                LogLib.Log.Trace($"Received: {input}");
+                if (Config.logArduino) {
+                    LogLib.Log.Trace($"Received: {input}");
+                }
             }
             RE.SetVar("ArduinoInput", input);
         }
@@ -267,9 +271,8 @@ namespace RoboShell
         /// </summary>
         /// <param name="face">Обнаруженное лицо</param>
         /// <returns></returns>
-        private async Task HighlightDetectedFace(DetectedFace face)
-        {
-            double cx=0, cy=0;
+        private async Task HighlightDetectedFace(DetectedFace face) {
+            double cx =0, cy=0;
             if (!Config.Headless)
             {
                 cx = ViewFinder.ActualWidth / VideoProps.Width;
@@ -375,9 +378,9 @@ namespace RoboShell
         }
 
         async Task<bool> RecognizeFace() {
-            Log.Trace($"BEFORE RecognizeFace()", Log.LogFlag.Debug);
+            Log.Trace($"BEFORE {GetType().Name}.RecognizeFace()", Log.LogFlag.Debug);
             if (!IsFacePresent) {
-                Log.Trace($"AFTER RecognizeFace() (!IsFacePresent)", Log.LogFlag.Debug);
+                Log.Trace($"AFTER {GetType().Name}.RecognizeFace(): IsFacePresent='false'", Log.LogFlag.Debug);
                 return false;
             }
 
@@ -387,24 +390,14 @@ namespace RoboShell
                 }
             }
 
-            var startTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-            LogLib.Log.Trace("RecognizeFace() started");
             FaceWaitTimer.Stop();
+
             var photoAsStream = new MemoryStream();
-            var t1 = MC.VideoDeviceController.GetMediaStreamProperties(MediaStreamType.VideoPreview);
-            var t2 = MC.VideoDeviceController.GetMediaStreamProperties(MediaStreamType.Photo);
-
-
             await MC.CapturePhotoToStreamAsync(ImageEncodingProperties.CreateJpeg(), photoAsStream.AsRandomAccessStream());
 
             byte[] photoAsByteArray = photoAsStream.ToArray();
 
-            var startTime2 = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-            LogLib.Log.Trace("BEFORE ProcessPhotoAsync()");
             PhotoInfoDTO photoInfo = await ProcessPhotoAsync(photoAsByteArray, Config.RecognizeEmotions);
-            LogLib.Log.Trace("AFTER ProcessPhotoAsync()");
-            var endTime2 = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-            var res2 = endTime2 - startTime2;
             if (photoInfo.FoundAndProcessedFaces) {
                 RE.SetVar("FaceCount", photoInfo.FaceCountAsString);
                 RE.SetVar("Gender", photoInfo.Gender);
@@ -412,23 +405,20 @@ namespace RoboShell
                 if (Config.RecognizeEmotions) {
                     RE.SetVar("Emotion", photoInfo.Emotion);
                 }
-                var endTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-                var res = endTime - startTime;
-                LogLib.Log.Trace($"Face data: #faces={RE.State.Eval("FaceCount")}, age={RE.State.Eval("Age")}, gender={RE.State.Eval("Gender")}, emo={RE.State.Eval("Emotion")}");
-                LogLib.Log.Trace($"RecognizeFace() finished. Took {res} millis, {res2} in the cloud");
+                Log.Trace($"AFTER {GetType().Name}.RecognizeFace(): FaceCount='{RE.State.Eval("FaceCount")}', " +
+                          $"Age='{RE.State.Eval("Age")}', Gender='{RE.State.Eval("Gender")}', Emotion='{RE.State.Eval("Emotion")}'", Log.LogFlag.Debug);
                 return true;
             }
             else {
                 FaceWaitTimer.Start();
-                var endTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-                var res = endTime - startTime;
-                LogLib.Log.Trace($"RecognizeFace() finished. Took {res} millis, {res2} in the cloud");
+                Log.Trace($"AFTER {GetType().Name}.RecognizeFace(): FaceCount='0'", Log.LogFlag.Debug);
                 return false;
             }
         }
 
 
         async Task<PhotoInfoDTO> ProcessPhotoAsync(byte[] photoAsByteArray, bool recognizeEmotions) {
+            Log.Trace($"BEFORE {GetType().Name}.ProcessPhotoAsync()", Log.LogFlag.Debug);
             PhotoToProcessDTO photoToProcessDTO = new PhotoToProcessDTO {
                 PhotoAsByteArray = photoAsByteArray,
                 RecognizeEmotions = recognizeEmotions
@@ -437,31 +427,29 @@ namespace RoboShell
 
             PhotoInfoDTO photoInfoDTO;
 
-            using (StringContent content = new StringContent(json.ToString(), Encoding.UTF8, "application/json")){
+            using (StringContent content = new StringContent(json, Encoding.UTF8, "application/json")){
                 try {
-                    var t1 = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-                    LogLib.Log.Trace("Before sent to network");
+                    Log.Trace($"{GetType().Name}.ProcessPhotoAsync(): sent to network");
                     HttpResponseMessage response = await httpClient.PostAsync(Config.CognitiveEndpoint, content);
-                    var res = DateTimeOffset.Now.ToUnixTimeMilliseconds() - t1;
-                    LogLib.Log.Trace($"After sent to network {res}");
+                    Log.Trace($"{GetType().Name}.ProcessPhotoAsync(): received a responce from network", Log.LogFlag.Debug);
                     if (response.StatusCode.Equals(HttpStatusCode.OK)) {
                         photoInfoDTO = JsonConvert.DeserializeObject<PhotoInfoDTO>(await response.Content.ReadAsStringAsync());
                     }
                     else {
-                        LogLib.Log.Trace("No faces found and analyzed");
+                        Log.Trace($"{GetType().Name}.ProcessPhotoAsync(): No faces found and analyzed", Log.LogFlag.Debug);
                         photoInfoDTO = new PhotoInfoDTO {
                             FoundAndProcessedFaces = false
                         };
                     }
                 } catch (Exception e) {
-                    LogLib.Log.Trace("Error! Exception message: " + e.Message);
+                    Log.Trace($"{GetType().Name}.ProcessPhotoAsync(): Error! Exception message: " + e.Message, Log.LogFlag.Error);
                     photoInfoDTO = new PhotoInfoDTO {
                         FoundAndProcessedFaces = false
                     };
                 }
                 
             }
-           
+            Log.Trace($"AFTER {GetType().Name}.ProcessPhotoAsync()", Log.LogFlag.Debug);
             return photoInfoDTO;
         }
     }

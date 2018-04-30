@@ -3,6 +3,7 @@ using System.IO;
 using Serilog;
 using Serilog.Core;
 using Windows.Storage;
+using Serilog.Events;
 
 namespace LogLib
 {
@@ -25,27 +26,29 @@ namespace LogLib
                 .WriteTo.File(LogPath + "\\logs\\Roboshell.log", rollingInterval: RollingInterval.Day)
                 .CreateLogger();
 
-        public static void Trace(string s)
-        {
-            logger.Information(s);
-            System.Diagnostics.Debug.WriteLine(s);
-        }
-
-        public static void Trace(string s, LogFlag flag)
+        public static void Trace(string s, LogFlag flag = LogFlag.Information)
         {
             switch (flag)
             {
                 case LogFlag.Debug:
-                    logger.Debug(s);
+                    if (logger.IsEnabled(LogEventLevel.Debug)) {
+                        logger.Debug(s);
+                    }
                     break;
                 case LogFlag.Information:
-                    logger.Information(s);
+                    if (logger.IsEnabled(LogEventLevel.Information)) {
+                        logger.Information(s);
+                    }
                     break;
                 case LogFlag.Error:
-                    logger.Error(s);
+                    if (logger.IsEnabled(LogEventLevel.Information)) {
+                        logger.Error(s);
+                    }
                     break;
                 default:
-                    logger.Error("Bad flag in Trace function");
+                    if (logger.IsEnabled(LogEventLevel.Information)) {
+                        logger.Error("Bad flag in Trace function");
+                    }
                     break;
             }
             System.Diagnostics.Debug.WriteLine(s);

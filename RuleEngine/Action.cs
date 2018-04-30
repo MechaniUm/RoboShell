@@ -80,14 +80,25 @@ namespace RuleEngineNet {
             }
         }
 
-        public void BeforeLog(string method = "Execute")
+        public void BeforeLog(string method = "Execute", string argsString = null)
         {
-            Log.Trace($"BEFORE {GetType().Name}.{method}()", Log.LogFlag.Debug);
+            if (argsString == null) {
+                Log.Trace($"BEFORE {GetType().Name}.{method}()", Log.LogFlag.Debug);
+            }
+            else {
+                Log.Trace($"BEFORE {GetType().Name}.{method}(): {argsString}", Log.LogFlag.Debug);
+            }
         }
 
-        public void AfterLog(string method = "Execute")
+        public void AfterLog(string method = "Execute", string argsString = null)
         {
-            Log.Trace($"AFTER {GetType().Name}.{method}()", Log.LogFlag.Debug);
+            if (argsString == null)
+            {
+                Log.Trace($"AFTER {GetType().Name}.{method}()", Log.LogFlag.Debug);
+            }
+            else {
+                Log.Trace($"AFTER {GetType().Name}.{method}(): {argsString}", Log.LogFlag.Debug);
+            }
         }
 
         public abstract void Initialize();
@@ -479,7 +490,6 @@ namespace RuleEngineNet {
 
 
             var textToSay = S.EvalString(Text);
-            LogLib.Log.Trace("say: " + textToSay);
             SayHelper(textToSay, S);
             AfterLog();
         }
@@ -489,7 +499,7 @@ namespace RuleEngineNet {
         }
         public async void SayHelper(String Text, State S)
         {
-            Log.Trace($"BEFORE {GetType().Name}.SayHelper()", Log.LogFlag.Debug);
+            BeforeLog("SayHelper", $"Text='{Text}'");
             while (isPlaying)
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(300));
@@ -503,7 +513,7 @@ namespace RuleEngineNet {
             }
             isPlaying = false;
             S.Assign("isPlaying", "False");
-            Log.Trace($"AFTER {GetType().Name}.SayHelper()", Log.LogFlag.Debug);
+            AfterLog("SayHelper", $"Text='{Text}'");
         }
 
     }
@@ -687,7 +697,6 @@ namespace RuleEngineNet {
         public override void Execute(State S)
         {
             BeforeLog();
-            LogLib.Log.Trace($"GPIO_TASK {task.Status}");
             var rand = new Random();
             int tmp = rand.Next(1, 101);
             if (tmp > Probability)
