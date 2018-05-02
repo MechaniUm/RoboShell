@@ -99,7 +99,7 @@ namespace RoboShell
         {
             base.OnNavigatedTo(e);
             await Init();
-            Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => tmp());
+            Dispatcher.RunAsync(CoreDispatcherPriority.Normal, async () => await InitLongRunning());
         }
 
         private async void EndSpeech(object sender, RoutedEventArgs e)
@@ -234,7 +234,7 @@ namespace RoboShell
 
 
 
-        private async Task tmp() {
+        private async Task InitLongRunning() {
             var spk = new UWPLocalSpeaker(media, Windows.Media.SpeechSynthesis.VoiceGender.Female);
             CoreWindow.GetForCurrentThread().KeyDown += KeyPressed;
             RE = BracketedRuleEngine.LoadBracketedKb(Config.KBFileName);
