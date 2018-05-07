@@ -100,28 +100,8 @@ namespace RoboShell
         protected async override void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
-            var spk = new UWPLocalSpeaker(media,Windows.Media.SpeechSynthesis.VoiceGender.Female);
-            LogLib.Log.Trace("Loading knowlegdebase");
-            //var xdoc = XDocument.Load("Robot.kb.xml");
-            //RE = XMLRuleEngine.LoadXml(xdoc);
-            RE = BracketedRuleEngine.LoadBracketedKb(Config.KBFileName);
-            RE.SetSpeaker(spk);
-            RE.Initialize();
-            RE.SetExecutor(ExExecutor);
-            FaceWaitTimer.Tick += StartDialog;
-            DropoutTimer.Tick += FaceDropout;
-            PreDropoutTimer.Tick += PreDropout;
-            InferenceTimer.Tick += InferenceStep;
-            InitGpio();
-            if (gpio != null)
-            {
-                ArduinoInputTimer.Tick += ArduinoInput;
-                ArduinoInputTimer.Start();
-            }
-            media.MediaEnded += EndSpeech;
-            CoreWindow.GetForCurrentThread().KeyDown += KeyPressed;
             await Init();
-            InferenceTimer.Start();
+            Dispatcher.RunAsync(CoreDispatcherPriority.Normal, async () => await InitLongRunning());
         }
 
         private async void EndSpeech(object sender, RoutedEventArgs e)
@@ -254,6 +234,33 @@ namespace RoboShell
             LogLib.Log.Trace("Face Recognition Started");
             var props = MC.VideoDeviceController.GetMediaStreamProperties(MediaStreamType.VideoPreview);
             VideoProps = props as VideoEncodingProperties;
+
+
+        }
+
+
+
+        private async Task InitLongRunning() {
+            var spk = new UWPLocalSpeaker(media, Windows.Media.SpeechSynthesis.VoiceGender.Female);
+            CoreWindow.GetForCurrentThread().KeyDown += KeyPressed;
+            RE = BracketedRuleEngine.LoadBracketedKb(Config.KBFileName);
+            RE.SetSpeaker(spk);
+            RE.Initialize();
+            RE.SetExecutor(ExExecutor);
+            FaceWaitTimer.Tick += StartDialog;
+            DropoutTimer.Tick += FaceDropout;
+            PreDropoutTimer.Tick += PreDropout;
+            InferenceTimer.Tick += InferenceStep;
+            InitGpio();
+            if (gpio != null)
+            {
+                ArduinoInputTimer.Tick += ArduinoInput;
+                ArduinoInputTimer.Start();
+            }
+            media.MediaEnded += EndSpeech;
+
+            InferenceTimer.Start();
+
         }
 
         /// <summary>

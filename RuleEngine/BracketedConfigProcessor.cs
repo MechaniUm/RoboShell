@@ -37,11 +37,10 @@ namespace RuleEngineNet {
 
                     if (i == closingBracesPositions.Length) throw new ConfigParseException();
 
-                    try {
-                        int possibleRuleSubstringLength =
-                            tryingClosingBracePosition - currentOpeningBracePosition + 1;
-                        Rule rule = Rule.ParseRule(config.Substring(currentOpeningBracePosition,
-                            possibleRuleSubstringLength));
+                    
+                    int possibleRuleSubstringLength = tryingClosingBracePosition - currentOpeningBracePosition + 1;
+                    Rule rule = Rule.ParseRule(config.Substring(currentOpeningBracePosition, possibleRuleSubstringLength));
+                    if (rule != null) {
                         rules.Add(rule);
                         curPos = tryingClosingBracePosition;
 
@@ -52,9 +51,7 @@ namespace RuleEngineNet {
 
                         break;
                     }
-                    catch {
-                        continue;
-                    }
+
                 }
             }
 
