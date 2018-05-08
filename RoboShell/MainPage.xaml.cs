@@ -150,7 +150,8 @@ namespace RoboShell
                 }
             }
             if (input != "0000") {
-                if (Config.logArduino) {
+                if (Config.logArduino)
+                {
                     LogLib.Log.Trace($"Received: {input}");
                 }
             }
@@ -269,7 +270,7 @@ namespace RoboShell
         /// </summary>
         private async void FaceDetectedEvent(FaceDetectionEffect sender, FaceDetectedEventArgs args)
         {
-            await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => HighlightDetectedFaces(args.ResultFrame.DetectedFaces));
+            Dispatcher.RunAsync(CoreDispatcherPriority.Normal, async () => await HighlightDetectedFaces(args.ResultFrame.DetectedFaces));
 //            await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => HighlightDetectedFace(args.ResultFrame.DetectedFaces.FirstOrDefault()));
         }
 
@@ -330,18 +331,18 @@ namespace RoboShell
                 RE.SetVar("FaceCount", facesCnt.ToString());
                 if (Config.analyzeOnlyOneFace) {
                     if (facesCnt == 1) {
-                        await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => HighlightDetectedFace(biggest));
+                        Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => HighlightDetectedFace(biggest));
                     }
                     else {
-                        await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => HighlightDetectedFace(null));
+                        Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => HighlightDetectedFace(null));
                     }
                 }
                 else {
-                    await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => HighlightDetectedFace(biggest));
+                    Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => HighlightDetectedFace(biggest));
                 }
             }
             else {
-                await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => HighlightDetectedFace(null));
+                Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => HighlightDetectedFace(null));
             }
         }
 
@@ -369,19 +370,22 @@ namespace RoboShell
 
         async void StartDialog(object sender, object e)
         {
-            if (!IsFacePresent) return;
-            RE.SetVar("Event", "FaceIn");
-            RE.Step();
-            InDialog = true;
-            LogLib.Log.Trace("Calling face recognition");
-            var res = await RecognizeFace();
-            if (res)
-            {
-                LogLib.Log.Trace("Initiating FaceRecognized Event");
-                RE.SetVar("Event", "FaceRecognized");
+            Dispatcher.RunAsync(CoreDispatcherPriority.Normal, async () => {
+                if (!IsFacePresent) return;
+                RE.SetVar("Event", "FaceIn");
                 RE.Step();
-                if (! InferenceTimer.IsEnabled) InferenceTimer.Start(); //TODO check
-            }
+                InDialog = true;
+                LogLib.Log.Trace("Calling face recognition");
+                var res = await RecognizeFace();
+                if (res)
+                {
+                    LogLib.Log.Trace("Initiating FaceRecognized Event");
+                    RE.SetVar("Event", "FaceRecognized");
+                    RE.Step();
+                    if (!InferenceTimer.IsEnabled) InferenceTimer.Start(); //TODO check
+                }
+            });
+            
         }
 
         async Task<bool> RecognizeFace() {

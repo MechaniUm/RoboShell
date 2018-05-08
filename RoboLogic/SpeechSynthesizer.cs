@@ -8,17 +8,11 @@ using Windows.Media.SpeechSynthesis;
 using Windows.Storage.Streams;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
+using LogLib;
 
 namespace RoboLogic
 {
-//    public interface ISpeaker
-//    {
-//        void Speak(string s);
-//        void ShutUp();
-//        void Play(Uri filename);
-//
-//        bool CanPlay();
-//    }
+    
 
     public class UWPLocalSpeaker //: ISpeaker
     {
@@ -38,10 +32,14 @@ namespace RoboLogic
         }
 
         public async Task Speak(string s) {
+            BeforeLog("Speak", $"Text='{s}'");
+            Log.Trace($"IN {GetType().Name}.Speak() Synthesize STARTED", Log.LogFlag.Debug);
             var x = await Synthesizer.SynthesizeTextToStreamAsync(s);
+            Log.Trace($"IN {GetType().Name}.Speak() Synthesize FINISHED", Log.LogFlag.Debug);
             Media.SetSource(x, x.ContentType);
             Media.AutoPlay = true;
             Media.Play();
+            AfterLog("Speak", $"Text='{s}'");
         }
 
         public async Task Speak(SpeechSynthesisStream s)
@@ -74,6 +72,30 @@ namespace RoboLogic
         public bool CanPlay() {
             return !isPlaying ;
 
+        }
+
+        public void BeforeLog(string method = "Execute", string argsString = null)
+        {
+            if (argsString == null)
+            {
+                Log.Trace($"BEFORE {GetType().Name}.{method}()", Log.LogFlag.Debug);
+            }
+            else
+            {
+                Log.Trace($"BEFORE {GetType().Name}.{method}(): {argsString}", Log.LogFlag.Debug);
+            }
+        }
+
+        public void AfterLog(string method = "Execute", string argsString = null)
+        {
+            if (argsString == null)
+            {
+                Log.Trace($"AFTER {GetType().Name}.{method}()", Log.LogFlag.Debug);
+            }
+            else
+            {
+                Log.Trace($"AFTER {GetType().Name}.{method}(): {argsString}", Log.LogFlag.Debug);
+            }
         }
     }
 }
