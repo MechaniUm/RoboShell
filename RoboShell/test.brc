@@ -1,3 +1,86 @@
-﻿($KeyboardIn == "Key_1") => (
-	(say "русский язык работает")
+﻿PingDance = False
+
+(($Event == "Ping") and ($PingDance == "2"))=> (
+	(PingDance = "False") and
+	(clear $Event)
+)
+
+(($Event == "Ping") and ($PingDance == "1"))=> (
+	(PingDance = "2") and
+	(clear $Event)
+)
+
+(($Event == "Ping") and ($PingDance == "False"))=> (
+    (
+	((GPIO 100 0,1,1,1 1000) and (play 100 "sneeze.wav")) or
+    ((GPIO 100 0,1,1,1 1000) and (play 100 "whistle.wav")) or
+    ((GPIO 100 0,1,1,1 1000) and (play 100 "yawn.wav")) or
+    ((GPIO 100 0,1,1,1 1000) and (play 100 "snore.wav")) or
+	((Stage = "PingDance1") and (PingDance = "1"))
+	) and
+	(stayActive) and
+	(clear $Event)
+)
+
+($Event == "FaceIn") => (
+	(GPIO 100 1,0,1,0 10000) and 
+	(say "{Хьюстон, Хьюстон, как слышно?| Это ваш первый сеанс связи с подушкой. Поехали!|Земля, Земля, это подушка, приём}") and 
+	(Stage = "startConversation") and 
+	(clear $Event)
+)
+
+($Event == "FaceOut") => (
+	(Stage = "Bye") and
+	(clear $Event)
+)
+
+(($Stage == "Bye")) => (
+	(shutUp) and
+	(GPIO 100 0,0,0,0 5000) and 
+	(say "Сеанс связи окончен") and 
+	(clear $Stage)
+)
+
+
+(($Stage == "PingDance1") and ($isPlaying != "True")) => (
+	(GPIO 100 0,1,1,0 200000) and (
+		(PlaySongs = "1") or
+		(PlaySongs = "2") or
+		(PlaySongs = "3")
+	)
+)
+
+($PlaySongs == "1") => (
+	(clear $PlaySongs) and
+	(
+	(play 100 "01.mp3" 200000) or
+	(play 100 "02.mp3" 200000) or
+	(play 100 "03.mp3" 200000) or
+	(play 100 "04.mp3" 200000) or
+	(play 100 "05.mp3" 200000) or
+	(play 100 "06.mp3" 200000)
+	)	
+)
+
+($PlaySongs == "2") => (
+	(clear $PlaySongs) and
+	(
+	(play 100 "07.mp3" 200000) or
+	(play 100 "08.mp3" 200000) or
+	(play 100 "09.mp3" 200000) or
+	(play 100 "10.mp3" 200000) or
+	(play 100 "11.mp3" 200000) or
+	(play 100 "12.mp3" 200000)
+	)	
+)
+
+($PlaySongs == "3") => (
+	(clear $PlaySongs) and
+	(
+	(play 100 "13.mp3" 200000) or
+	(play 100 "14.mp3" 200000) or
+	(play 100 "15.mp3" 200000) or
+	(play 100 "16.mp3" 200000) or
+	(play 100 "17.mp3" 200000)
+	)	
 )

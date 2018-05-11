@@ -10,9 +10,9 @@ namespace RoboShell
         public static string CognitiveEndpoint = "https://roboshellcognitivelogic.azurewebsites.net/api/PhotosAnalyzer";
         public static bool RecognizeEmotions = true;
         public static int MinBoringSeconds = 10;
-        public static int MaxBoringSeconds = 80;
+        public static int MaxBoringSeconds = 11;
         public static bool Headless = false;
-        public static string KBFileName = "main.brc";
+        public static string KBFileName = "test.brc";
         public static bool analyzeOnlyOneFace = true;
         public static int[] InputPinsNumbers = { 6, 13, 19, 26 };
         public static double facesRelation = 1.5;
