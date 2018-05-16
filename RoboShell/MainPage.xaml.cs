@@ -149,13 +149,15 @@ namespace RoboShell
                     input += "0";
                 }
             }
-            if (input != "0000") {
+            if (input != "0000")
+            {
                 if (Config.logArduino)
                 {
                     LogLib.Log.Trace($"Received: {input}");
                 }
             }
-            RE.SetVar("ArduinoInput", input);
+            if (RE.State.ContainsKey("isPlaying") && RE.State["isPlaying"] == "True" && (input == "0100" || input == "0010" || input == "0001")) RE.SetVar("ArduinoInput", "0000");
+            else RE.SetVar("ArduinoInput", input);
         }
 
         private void KeyPressed(CoreWindow sender, KeyEventArgs args)

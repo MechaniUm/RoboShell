@@ -835,18 +835,21 @@ namespace RuleEngineNet {
 
         public override void Execute(State S) {
             BeforeLog();
+            if (S.ContainsKey("inQuiz"))
+            {
+                if (S["inQuiz"] == "True")
+                {
+                    return;
+                }
+            }
+            S.Assign("inQuiz", "True");
             Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunTaskAsync(() => (QuizHelper(S)));
             AfterLog();
         }
 
         private async Task QuizHelper(State S)
         {
-            if (S.ContainsKey("inQuiz")) {
-                if (S["inQuiz"] == "True") {
-                    return;
-                }
-            }
-            S.Assign("inQuiz", "True");
+            
 
             if (!S.ContainsKey("ArduinoInput")) {
                 S["ArduinoInput"] = "";
