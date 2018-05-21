@@ -1,0 +1,395 @@
+﻿PingDance = False
+
+(($Event == "Ping") and ($PingDance == "2"))=> (
+	(PingDance = "False") and
+	(clear $Event)
+)
+
+(($Event == "Ping") and ($PingDance == "1"))=> (
+	(PingDance = "2") and
+	(clear $Event)
+)
+
+(($Event == "Ping") and ($PingDance == "False"))=> (
+    (
+	((GPIO 100 0,1,1,1 1000) and (play 100 "sneeze.wav")) or
+    ((GPIO 100 0,1,1,1 1000) and (play 100 "whistle.wav")) or
+    ((GPIO 100 0,1,1,1 1000) and (play 100 "yawn.wav")) or
+    ((GPIO 100 0,1,1,1 1000) and (play 100 "snore.wav")) or
+	((Stage = "PingDance1") and (PingDance = "1"))
+	) and
+	(stayActive) and
+	(clear $Event)
+)
+
+(($Stage == "PingDance1") and ($isPlaying != "True")) => (
+	(GPIO 100 0,1,1,0 200000) and (
+		(PlaySongs = "1") or
+		(PlaySongs = "2") or
+		(PlaySongs = "3")
+	)
+)
+
+($PlaySongs == "1") => (
+	(clear $PlaySongs) and
+	(
+	(play 100 "01.mp3" 200000) or
+	(play 100 "02.mp3" 200000) or
+	(play 100 "03.mp3" 200000) or
+	(play 100 "04.mp3" 200000) or
+	(play 100 "05.mp3" 200000) or
+	(play 100 "06.mp3" 200000)
+	)	
+)
+
+($PlaySongs == "2") => (
+	(clear $PlaySongs) and
+	(
+	(play 100 "07.mp3" 200000) or
+	(play 100 "08.mp3" 200000) or
+	(play 100 "09.mp3" 200000) or
+	(play 100 "10.mp3" 200000) or
+	(play 100 "11.mp3" 200000) or
+	(play 100 "12.mp3" 200000)
+	)	
+)
+
+($PlaySongs == "3") => (
+	(clear $PlaySongs) and
+	(
+	(play 100 "13.mp3" 200000) or
+	(play 100 "14.mp3" 200000) or
+	(play 100 "15.mp3" 200000) or
+	(play 100 "16.mp3" 200000) or
+	(play 100 "17.mp3" 200000)
+	)	
+)
+
+(($Event == "FaceIn") and ($MeaninglessQuestionStage == "True") and ($RecapturingMeaninglessQuestion == "True")) => (
+	(Stage = "MeaninglessQuestion") and (RecapturingMeaninglessQuestion = "False") and (stayActive)
+)
+
+(($Event == "FacePreOut") and ($MeaninglessQuestionStage == "True")) => (
+	(ext:Recapture "After:5") and (RecapturingMeaninglessQuestion = "True") and (GPIO 100 0,1,0,0 4000) and (stayActive)
+)
+
+(($Event == "FaceOut") and ($MeaninglessQuestionStage == "True")) => (
+	(RecapturingMeaninglessQuestion = "False") and (MeaninglessQuestionStage = "False") and (stayActive)
+)
+
+
+
+(($Event == "FacePreOut") and ($inQuiz == "True") and ($isPaused != "True")) => (
+	(shutUp) and (isPaused = "True") and (ext:Recapture "After:5") and (stayActive)
+)
+
+(($Event == "FaceIn") and ($inQuiz == "True") and ($isPaused == "True")) => (
+	(isPaused = "False") and (stayActive)
+)
+
+(($Event == "FaceOut") and ($inQuiz == "True") and ($stopQuiz != "True")) => (
+	(shutUp) and (stopQuiz = "True") and (isPaused = "False") and (GPIO 100 0,1,0,0 4000) and (sayGood = "False") and (stayActive)
+)
+
+(($inQuiz == "False") and ($stopQuiz == "True")) => (
+	(stopQuiz = "False") and (Stage = "Bye") and (stayActive)
+)
+
+
+($Event == "FaceOut") => (
+	(Stage = "Bye") and
+	(clear $Event)
+)
+
+($Stage == "Bye") => (
+	(shutUp) and
+	(GPIO 100 0,0,0,0 5000) and 
+	(say "Сеанс связи окончен") and 
+	(clear $Stage) and 
+	(AgeSay = "") and (Name = "") and (isPaused = "") and (inQuiz = "") and (stopQuiz = "") and (sayGood = "") and (lastAnswer = "") and (stayActive)
+)
+
+($Event == "FaceIn") => (
+	(GPIO 100 1,0,1,0 10000) and 
+	(say "{Хьюстон, Хьюстон, как слышно?| Это ваш первый сеанс связи с подушкой. Поехали!|Земля, Земля, это подушка, приём}") and 
+	(Stage = "startConversation") and 
+	(clear $Event)
+)
+
+(($Event == "FaceIn") and ($FaceCount > 1)) => (
+	(say "отойдите лишние люди! оставьте одного, того, кто осмелится полететь со мной в космос!") and 
+	(Stage = "goaway") and 
+	(clear $Event) and (clear $FaceCount)
+)
+
+($Stage == "goaway") => (ext:Recapture "After:5")
+(($Stage == "goaway") and ($FaceCount == 1)) => (
+	(say "наконец-то ты один!") and 
+	(Stage = "startConversation") and 
+	(clear $Event)
+)
+
+(($Event == "FaceRecognized") and ($Age in [0,10])) => (AgeSay = "меньше дюжины лет")
+(($Event == "FaceRecognized") and ($Age in [9,16])) => (AgeSay = "кажется, постарше двенадцати лет")
+(($Event == "FaceRecognized") and ($Age in [15,23])) => (AgeSay = "лет двадцати")
+(($Event == "FaceRecognized") and ($Age in [22,33])) => (AgeSay = "старше двадцати лет")
+(($Event == "FaceRecognized") and ($Gender == "F") and ($Age in [32,999])) => (AgeSay = "не больше тридцати лет")
+(($Event == "FaceRecognized") and ($Gender == "M") and ($Age in [32,46])) => (AgeSay = "за тридцать")
+(($Event == "FaceRecognized") and ($Gender == "M") and ($Age in [45,61])) => (AgeSay = "лет пятидесяти")
+(($Event == "FaceRecognized") and ($Gender == "M") and ($Age in [60,76])) => (AgeSay = "старше пятидесяти лет")
+(($Event == "FaceRecognized") and ($Gender == "M") and ($Age in [75,999])) => (AgeSay = "лет семидесяти")
+
+(($Event == "FaceRecognized") and  ($Gender == "M")) => (NameSay = "{Астронавт|Космонавт|Земной мужчина}")
+(($Event == "FaceRecognized") and  ($Gender == "F")) => (NameSay = "{Астронавтка|Космонавтка|Земная женщина}")
+
+(($Event == "FaceRecognized") and ($Gender == "M")) => (EmotionSay = "{${Emotion}:happiness=Весёлый|sadness=Грустный|surprise=Удивлённый|anger=Хмурый|neutral=Спокойный|Удивительный}")
+(($Event == "FaceRecognized") and ($Gender == "F")) => (EmotionSay = "{${Emotion}:happiness=Весёлая|sadness=Грустная|surprise=Удивлённая|anger=Хмурая|neutral=Спокойная|Удивительная}")
+
+($Event == "FaceRecognized") => (Name = "${NameSay} ${AgeSay} ${EmotionSay}")
+
+(($Event == "FaceRecognized") and ($Stage == "startConversation") and ($isPlaying != "True"))=> (
+	((GPIO 100 1,1,1,0 4000) or (GPIO 100 0,0,0,1 4000)) and
+	(userName = "{${Gender}:M=Астронавт|F=Астронавтка}") and 
+	((say "${Name}! то, что ты ${EmotionSay} -- это нормально для {твоего вида|твоей планеты}.") or (say "Приветствую тебя, ${Name}! ")) and 
+	(Stage = "aboutMe1")
+)
+
+(($Stage == "aboutMe1") and ($isPlaying != "True")) => (
+	(say "{Если ты думаешь, что я подушка, то ты не ошибаешься.|Меня зовут Лариса Сергеевна, для тебя просто Лариса.|Я самая уникальная робо-подушка во вселенной, буду помогать тебе в полете.}") 
+	and (Stage = "aboutMe2")
+)
+
+(($Stage == "aboutMe2") and ($isPlaying != "True")) => (
+	(GPIO 100 1,1,0,0 3000) and
+	(say "{Умею танцевать, ремонтировать двигатель космического корабля, проверять твои знания, осуществлять общее руководство полетом.|Я прилетела с необычной планеты, где президент Илон Маск.}") 
+	and (Stage = "MeaninglessQuestion")
+)
+
+(($Stage == "MeaninglessQuestion") and ($isPlaying != "True")) => ((
+ (Stage = "meaninglessQuestion1") or 
+ (Stage = "meaninglessQuestion2") or 
+ (Stage = "meaninglessQuestion3")) and
+ (MeaninglessQuestionStage = "True") and
+ (stayActive)
+)
+
+
+
+(($Stage == "meaninglessQuestion1") and ($isPlaying != "True")) => (
+	(say "Это твой первый полет в космос или ты бывалый? ") 
+	and (GPIO 100 1,0,1,1 10000)
+	and (Stage = "meaninglessResponseWait1") and (stayActive)
+)
+
+(($Stage == "meaninglessResponseWait1") and (($ArduinoInput == "0100") or ($ArduinoInput == "0010") or ($ArduinoInput == "0001"))) => (
+	(GPIO 100 1,0,1,1 4000)
+	and (Stage = "meaninglessResponse1") and (stayActive)
+)
+
+(($Stage == "meaninglessResponse1") and ($isPlaying != "True")) => (
+	(GPIO 100 0,1,0,0 4000)
+	and (say "я за тебя рада ") 
+	and (Stage = "preFactQuestion")
+	and (MeaninglessQuestionStage = "False") and (stayActive)
+)
+
+
+
+(($Stage == "meaninglessQuestion2") and ($isPlaying != "True")) => (
+	(say "Ненавидишь ли ты блокчейн так же, как и я? ") 
+	and (GPIO 100 1,0,1,1 10000)
+	and (Stage = "meaninglessResponseWait2") and (stayActive)
+)
+
+(($Stage == "meaninglessResponseWait2") and (($ArduinoInput == "0100") or ($Event == "Key_6") )) => (
+	(GPIO 100 1,0,1,1 4000)
+	and (Stage = "meaninglessResponseYes2") and (stayActive)
+)
+
+(($Stage == "meaninglessResponseWait2") and (($ArduinoInput == "0010") or ($ArduinoInput == "0001"))) => (
+	(GPIO 100 1,0,1,1 4000)
+	and (Stage = "meaninglessResponseNo2") and (stayActive)
+)
+
+(($Stage == "meaninglessResponseNo2") and ($isPlaying != "True")) => (
+	(GPIO 100 0,1,0,0 4000)
+	and (say "Если ты ещё и майнер, развернись и беги, космос не для тебя! ") 
+	and (Stage = "preFactQuestion")
+	and (MeaninglessQuestionStage = "False") and (stayActive)
+)
+
+(($Stage == "meaninglessResponseYes2") and ($isPlaying != "True")) => (
+	(GPIO 100 0,1,0,0 4000)
+	and (say "Правильно!") 
+	and (Stage = "preFactQuestion")
+	and (MeaninglessQuestionStage = "False") and (stayActive)
+)
+
+
+(($Stage == "meaninglessQuestion3") and ($isPlaying != "True")) => (
+	((say "C3PO просто красавчик! А ты его тоже любишь скажи? ") or (say "Любишь ли ты Илона Маска так же, как люблю его я?"))
+	and (GPIO 100 1,0,1,1 4000)
+	and (Stage = "meaninglessResponseWait3") and (stayActive)
+)
+
+(($Stage == "meaninglessResponseWait3") and (($ArduinoInput == "0100") or ($ArduinoInput == "0010") or ($ArduinoInput == "0001"))) => (
+	(GPIO 100 1,0,1,1 4000)
+	and (Stage = "meaninglessResponse3") and (stayActive)
+)
+
+(($Stage == "meaninglessResponse3") and ($isPlaying != "True")) => (
+	(GPIO 100 0,1,0,0 4000)
+	and ((say "Мне он очень по душе") or (say "как же он хорош"))
+	and (Stage = "preFactQuestion")
+	and (MeaninglessQuestionStage = "False") and (stayActive)
+)
+
+(($Stage == "preFactQuestion") and ($isPlaying != "True")) => (
+	(say "Хочешь, расскажу что-нибудь занятное про космос?") and
+	(GPIO 100 1,0,1,1 4000) and
+	(Stage = "preFactResponseWait")
+)
+
+(($Stage == "preFactResponseWait") and ($ArduinoInput == "0100")) => (
+	(GPIO 100 1,0,1,1 4000) and 
+	(Stage = "preFactResponse")
+)
+
+(($Stage == "preFactResponseWait") and ($ArduinoInput == "0010")) => (
+	(GPIO 100 1,0,1,1 4000) and 
+	(Stage = "preQuizQuestion")
+)
+
+(($Stage == "preFactResponse") and ($isPlaying != "True")) => (
+	(
+	(say "Медведи в России встречаются в 19 раз чаще, чем астероиды в Главном астероидном поясе") or
+	(say "Если заплакать в космосе, слезы останутся на глазах и лице.") or
+	(say "Газовое облако в созвездии Орел содержит достаточно алкоголя, чтобы создать 200 септиллионов литров пива.") or
+	(say "Если бы вы упали в черную дыру, вас бы растянуло как лапшу. Явление называется спаггетификация.") or 
+	(say "Если ничто не потревожит Луну например, метеорит, то следы, оставленные на ее поверхности, останутся нетронутыми навсегда. В отличие от Земли тут нет эрозии, вызванной ветром и водой.") or
+	(say "Навозные жуки ориентируются по Млечному пути.Птицы, тюлени и люди используют звезды для ориентирования, но африканские навозные жуки используют целую галактику.") or
+	(say "Более двухста двенадцати лет вам бы понадобилось, чтобы на обычном автомобиле добраться до Солнца.")
+	)
+	and (Stage = "preQuizQuestion")
+)
+
+
+
+(($Stage == "preQuizQuestion") and ($isPlaying != "True")) => (
+	(GPIO 100 1,0,1,1 20000) and (say "предлагаю викторину") and (Stage = "QuizQuest")
+)
+
+(($Stage == "QuizQuest") and ($ArduinoInput == "0100")) => (
+	(GPIO 100 0,1,0,0 4000)
+	and (Stage = "QuizStart")
+)
+
+(($Stage == "QuizQuest") and ($ArduinoInput == "0010")) => (
+	(GPIO 100 0,1,0,0 4000)
+	and (Stage = "Diag")
+)
+
+(($Stage == "QuizQuest") and ($ArduinoInput == "0001")) => (
+	(GPIO 100 0,1,0,0 4000) 
+	and (((say "впрочем, я решу за тебя. не будет викторины.") and (Stage = "Diagn")) or ((say "впрочем, я решу за тебя. будет викторина.") and (Stage = "QuizStart")))
+)
+
+(($Stage == "QuizStart") and ($isPlaying != "True")) => (
+	(sayGood = "True") and (
+	(quiz "quiz1.csv" randomOrder 3:6) or
+	(quiz "quiz2.csv" randomOrder 3:6))
+)
+
+(($Stage == "QuizStart") and ($inQuiz != "True") and ($isPlaying != "True")) => (
+	(Stage = "Diag") and (sayGood = "False")
+)
+
+
+
+(($Stage == "Diag") and ($isPlaying != "True")) => (
+	(GPIO 100 1,0,1,1 4000) and (say "предлагаю диагностику") and (Stage = "DiagQuest")
+)
+
+(($Stage == "DiagQuest") and ($ArduinoInput == "0100")) => (
+	(GPIO 100 0,1,0,0 5000)
+	and (Stage = "DiagStart")
+)
+
+(($Stage == "DiagQuest") and ($ArduinoInput == "0010")) => (
+	(GPIO 100 0,1,0,0 5000)
+	and (Stage = "Disco")
+)
+
+(($Stage == "DiagQuest") and ($ArduinoInput == "0001")) => (
+	(GPIO 100 0,1,0,0 5000) 
+	and (((say "впрочем, я решу за тебя. не будет диагностики.") and (Stage = "Disco")) or ((say "впрочем, я решу за тебя. будет диагностика.") and (Stage = "DiagStart")))
+)
+
+(($Stage == "DiagStart") and ($isPlaying != "True")) => (
+	(sayGood = "False") and (quiz "diag0.csv")
+)
+
+(($Stage == "DiagStart") and ($inQuiz != "True") and ($isPlaying != "True") and ($lastAnswer == "True")) => (
+	(Stage = "Bye") and (sayGood = "False") and (say "Мне очень жаль, по-моему наш полет окончен!")
+)
+
+(($Stage == "DiagStart") and ($inQuiz != "True") and ($isPlaying != "True") and ($lastAnswer == "False")) => (
+	(Stage = "Disco") and (sayGood = "False") and (say "Кажется мы подружились с этими очаровательными, восьминогими, разумными паучками! Поздравляю, коллега!")
+)
+
+(($Stage == "DiagStart") and ($inQuiz != "True") and ($isPlaying != "True") and ($lastAnswer == "None")) => (
+	(Stage = "Bye") and (sayGood = "False") and (say "ответа нет или он непонятен. кажется, наше путешествие успело завершиться.")
+)
+
+
+
+(($Stage == "Disco") and ($isPlaying != "True")) => (
+	(GPIO 100 1,0,1,1 25000) and (say "давай танцевать! что думаешь?") and (Stage = "DanceQuest")
+)
+
+(($Stage == "DanceQuest") and ($ArduinoInput == "0100")) => (
+	(GPIO 100 0,1,0,0 2000)
+	and (Stage = "DanceStart")
+)
+
+(($Stage == "DanceQuest") and (($ArduinoInput == "0010") or ($ArduinoInput == "0001"))) => (
+	(GPIO 100 0,1,0,0 2000)
+	and (Stage = "Bye")
+)
+
+
+(($Stage == "DanceStart") and ($isPlaying != "True")) => (
+	 (Stage = "DanceStart1") or (Stage = "DanceStart2") or (Stage = "DanceStart3")
+)
+
+(($Stage == "DanceStart1") and ($isPlaying != "True")) => (
+	(GPIO 100 0,1,1,0 200000) and (
+		(play 100 "01.mp3" 200000) or
+		(play 100 "02.mp3" 200000) or
+		(play 100 "03.mp3" 200000) or
+		(play 100 "04.mp3" 200000) or
+		(play 100 "05.mp3" 200000) or
+		(play 100 "06.mp3" 200000)
+	) and (Stage = "Dancing")
+)
+
+(($Stage == "DanceStart2") and ($isPlaying != "True")) => (
+	(GPIO 100 0,1,1,0 200000) and (
+		(play 100 "07.mp3" 200000) or
+		(play 100 "08.mp3" 200000) or
+		(play 100 "09.mp3" 200000) or
+		(play 100 "10.mp3" 200000) or
+		(play 100 "11.mp3" 200000) or
+		(play 100 "12.mp3" 200000)
+	) and (Stage = "Dancing")
+)
+
+(($Stage == "DanceStart3") and ($isPlaying != "True")) => (
+	(GPIO 100 0,1,1,0 200000) and (
+		(play 100 "13.mp3" 200000) or
+		(play 100 "14.mp3" 200000) or
+		(play 100 "15.mp3" 200000) or
+		(play 100 "16.mp3" 200000) or
+		(play 100 "17.mp3" 200000)
+	) and (Stage = "Dancing")
+)

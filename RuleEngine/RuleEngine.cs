@@ -36,9 +36,12 @@ namespace RuleEngineNet
             this.InitialState = S;
         }
 
-        public void SetSpeaker(ISpeaker spk)
+        public void SetSpeaker(UWPLocalSpeaker spk)
         {
-            Say.Speaker = spk;
+            Say.Speaker = (UWPLocalSpeaker) spk;
+            Play.Speaker = spk;
+            ShutUp.Speaker = spk;
+            Quiz.Speaker = spk;
         }
 
         public void SetExecutor(Action<string,string> Executor)
@@ -48,7 +51,7 @@ namespace RuleEngineNet
 
         public void Reset()
         {
-            State = new State(InitialState);
+            //State = new State(InitialState);
             foreach(var x in KnowlegeBase)
             {
                 x.Active = true;
@@ -77,17 +80,17 @@ namespace RuleEngineNet
                 var rule = ResolveConflict(cs);
                 LastActionLongRunning = rule.Then.LongRunning;
                 rule.Then.Execute(State);
-                if (rule.RuleSet==null) rule.Active = false;
-                else
+                if (rule.Then.ActiveAfterExecution)
                 {
-                    var t = from x in cs
-                            where (x.RuleSet != null && x.RuleSet == rule.RuleSet)
-                            select x;
-                    foreach (var x in t) x.Active = false;
+                    rule.Active = true;
+                    rule.Then.ActiveAfterExecution = false;
                 }
+                else rule.Active = false;
+
                 return true;
             }
-            else return false;
+            return false;
+
         }
 
         public bool StepUntilLongRunning()
@@ -134,6 +137,12 @@ namespace RuleEngineNet
         {
             while (Step()) ;
         }
+
+        public void Initialize() {
+            foreach (var x in KnowlegeBase) {
+                x.Then.Initialize();
+            }
+        }
     }
 
     public class XMLRuleEngine : RuleEngine
@@ -146,8 +155,10 @@ namespace RuleEngineNet
             var t = from x in xdoc.Descendants("State").First().Elements()
                 select x;
             foreach (var v in t) {
-                S.Add(v.Attribute("Name").Value, v.Attribute("Value").Value);
+                S.AddOrUpdate(v.Attribute("Name").Value, v.Attribute("Value").Value, (k, oV) => (v.Attribute("Value").Value));
             }
+
+            S["isPlaying"] = "False";
             return new RuleEngine(KB, S);
         }
     }
@@ -164,6 +175,8 @@ namespace RuleEngineNet
             Task.WaitAll(t);
 
             State initialState = kbContent.Item1;
+            initialState["isPlaying"] = "False";
+
 
             List<Rule> rules = kbContent.Item2;
 
@@ -171,56 +184,37 @@ namespace RuleEngineNet
         }
 
 
-        private static async Task<Tuple<State, List<Rule>>> fileLineByLine(String filename) {
-            //List<string> stateConfigLines = new List<string>();
+        private static async Task<Tuple<State, List<Rule>>> fileLineByLine(String filename)
+        {
             List<string> rulesConfigLines = new List<string>();
-
             State S = new State();
             List<Rule> R = new List<Rule>();
-
             string line;
-
-            
-
             StorageFolder appInstalledFolder = Windows.ApplicationModel.Package.Current.InstalledLocation;
-            
-
-
-            var file = await appInstalledFolder.GetFileAsync(filename);//.GetFileFromApplicationUriAsync(new Uri($"ms-appx:///{filename}"));
-
+            var file = await appInstalledFolder.GetFileAsync(filename);
 
             using (var inputStream = await file.OpenReadAsync())
             using (var classicStream = inputStream.AsStreamForRead())
-            using (var streamReader = new StreamReader(classicStream)) {
-                // parse states
+            using (var streamReader = new StreamReader(classicStream))
+            {
                 while ((line = streamReader.ReadLine()) != null)
                 {
-                    // skip if only spaces containing line
                     try
                     {
                         Tuple<string, string> assignement = ParseVarAssignementLine(line);
-                        //Console.WriteLine($"{assignement.Item1} = {assignement.Item2}");// TODO: logger.info
-                        S.Add(assignement.Item1, assignement.Item2);
+                        S.AddOrUpdate(assignement.Item1, assignement.Item2, (k, oV)=>(assignement.Item2));
                     }
-                    catch (StateLineParseException e)
+                    catch (Exception)
                     {
                         break;
                     }
-                    catch (RuleEngineException e)
-                    {
-                        //                    Console.WriteLine(e.Message); // TODO: logger.error
-                    }
                 }
-
 
                 string RulesConfigString = line;
-                // parse rules
                 while ((line = streamReader.ReadLine()) != null)
                 {
-                    // skip if only spaces containing line
                     RulesConfigString += " " + line;
                 }
-
 
                 R = ParseRulesConfigString(RulesConfigString);
             }

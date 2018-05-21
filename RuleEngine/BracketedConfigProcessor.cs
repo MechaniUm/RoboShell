@@ -37,11 +37,10 @@ namespace RuleEngineNet {
 
                     if (i == closingBracesPositions.Length) throw new ConfigParseException();
 
-                    try {
-                        int possibleRuleSubstringLength =
-                            tryingClosingBracePosition - currentOpeningBracePosition + 1;
-                        Rule rule = Rule.ParseRule(config.Substring(currentOpeningBracePosition,
-                            possibleRuleSubstringLength));
+                    
+                    int possibleRuleSubstringLength = tryingClosingBracePosition - currentOpeningBracePosition + 1;
+                    Rule rule = Rule.ParseRule(config.Substring(currentOpeningBracePosition, possibleRuleSubstringLength));
+                    if (rule != null) {
                         rules.Add(rule);
                         curPos = tryingClosingBracePosition;
 
@@ -52,9 +51,7 @@ namespace RuleEngineNet {
 
                         break;
                     }
-                    catch {
-                        continue;
-                    }
+
                 }
             }
 
@@ -67,11 +64,13 @@ namespace RuleEngineNet {
         }
 
 
-        public static void AssertValidString(string possibleString) {
-            if (possibleString == null) throw new ArgumentNullException(nameof(possibleString));
+        public static bool AssertValidString(string possibleString) {
+            if (possibleString == null) return false;
             if (possibleString.Replace("\\\"", "").Contains("\"")) {
-                throw new RuleParseException();
+                return false;
             }
+
+            return true;
         }
 
 
@@ -88,10 +87,6 @@ namespace RuleEngineNet {
         }
 
         public static string VARNAME_REGEX_PATTERN = @"[a-zA-Z][a-zA-Z0-9_]*";
-    }
-
-    internal class RuleParseException : Exception
-    {
     }
 
     internal class ConfigParseException : Exception
