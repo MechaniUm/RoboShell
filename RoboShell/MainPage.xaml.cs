@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.Devices.Enumeration;
 using Windows.Devices.Gpio;
@@ -390,27 +391,43 @@ namespace RoboShell
             
         }
 
+        private static long lastRecognizingTimeStampMillis = 0;
         async Task<bool> RecognizeFace() {
             Log.Trace($"BEFORE {GetType().Name}.RecognizeFace()", Log.LogFlag.Debug);
+            long currMilliseconds = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            if (currMilliseconds - 1000L < Interlocked.Exchange(ref lastRecognizingTimeStampMillis, currMilliseconds)) {
+                Log.Trace($"IN {GetType().Name}.RecognizeFace() BEFORE will wait", Log.LogFlag.Debug);
+                await Task.Delay(TimeSpan.FromMilliseconds(1000));
+                Interlocked.Exchange(ref lastRecognizingTimeStampMillis, DateTimeOffset.Now.ToUnixTimeMilliseconds());
+                Log.Trace($"IN {GetType().Name}.RecognizeFace() AFTER will wait", Log.LogFlag.Debug);
+            }
+
             if (!IsFacePresent) {
                 Log.Trace($"AFTER {GetType().Name}.RecognizeFace(): IsFacePresent='false'", Log.LogFlag.Debug);
                 return false;
             }
 
+            Log.Trace($"IN {GetType().Name}.RecognizeFace() BEFORE check Event state", Log.LogFlag.Debug);
             if (RE.State.ContainsKey("Event")) {
                 if (RE.State["Event"] == "FacePreOut") {
                     RE.SetVar("Event", "FaceIn");
                 }
             }
+            Log.Trace($"IN {GetType().Name}.RecognizeFace() AFTER check Event state", Log.LogFlag.Debug);
 
             FaceWaitTimer.Stop();
 
             var photoAsStream = new MemoryStream();
+            Log.Trace($"IN {GetType().Name}.RecognizeFace() BEFORE capture a photo", Log.LogFlag.Debug);
             await MC.CapturePhotoToStreamAsync(ImageEncodingProperties.CreateJpeg(), photoAsStream.AsRandomAccessStream());
-
+            Log.Trace($"IN {GetType().Name}.RecognizeFace() AFTER capture a photo, BEFORE serialized", Log.LogFlag.Debug);
             byte[] photoAsByteArray = photoAsStream.ToArray();
+            Log.Trace($"IN {GetType().Name}.RecognizeFace() AFTER capture a photo, AFTER serialized", Log.LogFlag.Debug);
 
+
+            Log.Trace($"IN {GetType().Name}.RecognizeFace() BEFORE ProcessPhotoAsync()", Log.LogFlag.Debug);
             PhotoInfoDTO photoInfo = await ProcessPhotoAsync(photoAsByteArray, Config.RecognizeEmotions);
+            Log.Trace($"IN {GetType().Name}.RecognizeFace() AFTER ProcessPhotoAsync()", Log.LogFlag.Debug);
             if (photoInfo.FoundAndProcessedFaces) {
                 RE.SetVar("FaceCount", photoInfo.FaceCountAsString);
                 RE.SetVar("Gender", photoInfo.Gender);
@@ -418,8 +435,10 @@ namespace RoboShell
                 if (Config.RecognizeEmotions) {
                     RE.SetVar("Emotion", photoInfo.Emotion);
                 }
+
                 Log.Trace($"AFTER {GetType().Name}.RecognizeFace(): FaceCount='{RE.State.Eval("FaceCount")}', " +
-                          $"Age='{RE.State.Eval("Age")}', Gender='{RE.State.Eval("Gender")}', Emotion='{RE.State.Eval("Emotion")}'", Log.LogFlag.Debug);
+                            $"Age='{RE.State.Eval("Age")}', Gender='{RE.State.Eval("Gender")}', Emotion='{RE.State.Eval("Emotion")}'",
+                    Log.LogFlag.Debug);
                 return true;
             }
             else {
