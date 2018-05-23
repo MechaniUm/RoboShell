@@ -200,7 +200,7 @@ namespace RoboShell
         /// </summary>
         private async Task Init()
         {
-            LogLib.Log.Trace("Initializing media...");
+            LogLib.Log.Trace("BEFORE initialize MediaCapture");
             MC = new MediaCapture();
             var cameras = await DeviceInformation.FindAllAsync(DeviceClass.VideoCapture);
             var camera = cameras.Last();
@@ -223,8 +223,9 @@ namespace RoboShell
                 ViewFinder.Source = MC;
             }
 
-            
-            
+
+
+            LogLib.Log.Trace("AFTER initialize MediaCapture");
 
 
         }
@@ -234,6 +235,7 @@ namespace RoboShell
         private async Task InitLongRunning() {
             var spk = new UWPLocalSpeaker(media, Windows.Media.SpeechSynthesis.VoiceGender.Female);
             CoreWindow.GetForCurrentThread().KeyDown += KeyPressed;
+            Log.Trace("BEFORE receive actual kb");
 
             try {
                 HttpResponseMessage httpResponseMessage = await httpClient.GetAsync("https://github.com/");
@@ -279,7 +281,8 @@ namespace RoboShell
                     Log.Trace("Using local nongit config version");
                 }
             }
-           
+            Log.Trace("AFTER receive actual kb");
+
 
             RE.SetSpeaker(spk);
             RE.Initialize();
