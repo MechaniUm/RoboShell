@@ -180,6 +180,7 @@ namespace RuleEngineNet {
             string ASSIGNEMENT_REGEX = $"^(?<var>{BracketedConfigProcessor.VARNAME_REGEX_PATTERN})\\s*=\\s*(?<value>\\S+)$";
             string CLEAR_REGEX = $"^clear\\s+\\$(?<var>{BracketedConfigProcessor.VARNAME_REGEX_PATTERN})$";
             string SAY_REGEX = $"^say\\s+((?<probability>\\d*)\\s+)?\".*\"$";
+            string SAY_FAST_REGEX = $"^sayFast\\s+((?<probability>\\d*)\\s+)?\".*\"$";
             string SHUT_UP_REGEX = $"^shutUp$";
             string GPIO_REGEX = $"^GPIO\\s+((?<probability>\\d*)\\s+)?(?<signal>([10],)*[10])\\s+(?<time>\\d+)$";
             string EXTERNAL_ACTION_NAME_REGEX_PATTERN = BracketedConfigProcessor.VARNAME_REGEX_PATTERN;
@@ -238,6 +239,27 @@ namespace RuleEngineNet {
                     }
                     if (BracketedConfigProcessor.AssertValidString(possibleString)) {
                         action = new Say(possibleString, probability);
+                    }
+                }
+                else if (Regex.IsMatch(prettyActionSequence, SAY_FAST_REGEX))
+                {
+                    int firstQuotePosition = prettyActionSequence.IndexOf("\"");
+                    int lastQuotePosition = prettyActionSequence.LastIndexOf("\"");
+                    int start = firstQuotePosition + 1;
+                    int len = lastQuotePosition - start;
+                    string possibleString = prettyActionSequence.Substring(start, len);
+                    Match m = Regex.Match(prettyActionSequence, SAY_REGEX);
+                    if (m.Length != 0 && m.Groups["probability"].Value.Length != 0)
+                    {
+                        probability = Int32.Parse(m.Groups["probability"].Value);
+                    }
+                    else
+                    {
+                        probability = 100;
+                    }
+                    if (BracketedConfigProcessor.AssertValidString(possibleString))
+                    {
+                        action = new SayFast(possibleString, probability);
                     }
                 }
                 else if (Regex.IsMatch(prettyActionSequence, SHUT_UP_REGEX)) {
@@ -514,6 +536,112 @@ namespace RuleEngineNet {
             isPlaying = false;
             S.Assign("isPlaying", "False");
             AfterLog("SayHelper", $"Text='{Text}'");
+        }
+
+    }
+
+
+    public class SayFast : Action
+    {
+        public static UWPLocalSpeaker Speaker { get; set; }
+        public int Probability { get; set; }
+        public string Text { get; set; }
+
+        public static bool isPlaying = false;
+
+        private List<Tuple<string, SpeechSynthesisStream>> sentencesPossible = new List<Tuple<string, SpeechSynthesisStream>>();
+
+        public SayFast(string Text, int Probability)
+        {
+            this.Text = Text;
+            this.Probability = Probability;
+        }
+
+        public override void Initialize() {
+            var rx = new Regex(@"{(.*?)}");
+            MatchCollection ms = rx.Matches(this.Text);
+
+            List<int> tmp = new List<int>();
+            int lastPos = 0;
+            List<string> txt = new List<string>();
+            List<string[]> matches = new List<string[]>();
+            foreach (Match m in ms)
+            {
+                txt.Add(this.Text.Substring(lastPos, m.Index - lastPos));
+                lastPos = m.Index + m.Length;
+                matches.Add(m.Value.Trim('{', '}').Split('|'));
+            }
+            txt.Add(this.Text.Substring(lastPos, this.Text.Length - lastPos));
+            List<string> stringsToSay = new List<string>();
+            stringsToSay.Add("");
+            for (var i = 0; i < matches.Count; i++)
+            {
+                string[] ss = matches[i];
+                List<string> tmpsts = new List<string>();
+
+                foreach (string t in stringsToSay)
+                {
+                    foreach (string s in ss)
+                    {
+                        tmpsts.Add(t + txt[i] + s);
+                    }
+                    
+                }
+
+                stringsToSay = tmpsts;
+            }
+
+            for (var i = 0; i < stringsToSay.Count; i++)
+            {
+                stringsToSay[i] = stringsToSay[i] + txt.Last();
+            }
+            foreach (var stringToSay in stringsToSay) {
+                //Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunTaskAsync(async () => {
+                Task.Run(async () => {
+                    SpeechSynthesisStream speechSynthesisStream = await Speaker.Synthesizer.SynthesizeTextToStreamAsync(stringToSay);
+                    sentencesPossible.Add(new Tuple<string, SpeechSynthesisStream>(stringToSay, speechSynthesisStream));
+                }).Wait();
+            }
+        }
+        public override bool LongRunning => true;
+
+        public override void Execute(State S)
+        {
+            BeforeLog();
+            var rand = new Random();
+            if (rand.Next(1, 101) > Probability)
+            {
+                return;
+            }
+
+
+            ;
+            SayFastHelper(sentencesPossible.OneOf(), S);
+            AfterLog();
+        }
+
+        public static SayFast Parse(XElement X)
+        {
+            return new SayFast(X.Attribute("Text").Value, 100);
+        }
+        public async void SayFastHelper(Tuple<string, SpeechSynthesisStream> speechSynthesisStreamTuple, State S)
+        {
+            BeforeLog("SayFastHelper", $"Text='{speechSynthesisStreamTuple.Item1}'");
+            while (isPlaying)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(300));
+            }
+            isPlaying = true;
+            S.Assign("isPlaying", "True");
+            await Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunTaskAsync(() => Speaker.Speak(speechSynthesisStreamTuple.Item2));
+            await Task.Delay(TimeSpan.FromMilliseconds(500));
+            while (Speaker.Media.CurrentState != MediaElementState.Closed && Speaker.Media.CurrentState != MediaElementState.Stopped && Speaker.Media.CurrentState != MediaElementState.Paused)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(500));
+            }
+            isPlaying = false;
+            S.Assign("isPlaying", "False");
+            AfterLog("SayFastHelper", $"Text='{speechSynthesisStreamTuple.Item1}'");
         }
 
     }

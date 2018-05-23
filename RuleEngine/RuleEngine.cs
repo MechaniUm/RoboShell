@@ -39,6 +39,7 @@ namespace RuleEngineNet
         public void SetSpeaker(UWPLocalSpeaker spk)
         {
             Say.Speaker = (UWPLocalSpeaker) spk;
+            SayFast.Speaker = spk;
             Play.Speaker = spk;
             ShutUp.Speaker = spk;
             Quiz.Speaker = spk;
