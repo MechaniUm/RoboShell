@@ -18,5 +18,7 @@ namespace RoboShell
         public static double facesRelation = 1.5;
         public static double biggestFaceRelativeSize = 0.01;
         public static bool logArduino = true;
+        public static string GitKBUrl = "https://raw.githubusercontent.com/MechaniUm/OuterSpaceKB/master/kb.brc";
+        public static string GitKBFileName = "kb.brc";
     }
 }

@@ -183,6 +183,24 @@ namespace RuleEngineNet
             return new RuleEngine(rules, initialState);
         }
 
+        public static RuleEngine LoadBracketedKb(StorageFile storageFile)
+        {
+            Tuple<State, List<Rule>> kbContent = null;
+
+            Task t = Task.Run(async () => {
+                kbContent = await fileLineByLine(storageFile);
+            });
+            Task.WaitAll(t);
+
+            State initialState = kbContent.Item1;
+            initialState["isPlaying"] = "False";
+
+
+            List<Rule> rules = kbContent.Item2;
+
+            return new RuleEngine(rules, initialState);
+        }
+
 
         private static async Task<Tuple<State, List<Rule>>> fileLineByLine(String filename)
         {
@@ -193,7 +211,18 @@ namespace RuleEngineNet
             StorageFolder appInstalledFolder = Windows.ApplicationModel.Package.Current.InstalledLocation;
             var file = await appInstalledFolder.GetFileAsync(filename);
 
-            using (var inputStream = await file.OpenReadAsync())
+            return await fileLineByLine(file);
+        }
+
+
+        private static async Task<Tuple<State, List<Rule>>> fileLineByLine(StorageFile storageFile)
+        {
+            List<string> rulesConfigLines = new List<string>();
+            State S = new State();
+            List<Rule> R = new List<Rule>();
+            string line;
+
+            using (var inputStream = await storageFile.OpenReadAsync())
             using (var classicStream = inputStream.AsStreamForRead())
             using (var streamReader = new StreamReader(classicStream))
             {
@@ -202,7 +231,7 @@ namespace RuleEngineNet
                     try
                     {
                         Tuple<string, string> assignement = ParseVarAssignementLine(line);
-                        S.AddOrUpdate(assignement.Item1, assignement.Item2, (k, oV)=>(assignement.Item2));
+                        S.AddOrUpdate(assignement.Item1, assignement.Item2, (k, oV) => (assignement.Item2));
                     }
                     catch (Exception)
                     {
@@ -221,7 +250,6 @@ namespace RuleEngineNet
 
             return new Tuple<State, List<Rule>>(S, R);
         }
-
 
         private static List<Rule> ParseRulesConfigString(string rulesConfigString) {
             BracketedConfigProcessor bracketedConfigProcessor = new BracketedConfigProcessor();

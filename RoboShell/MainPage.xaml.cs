@@ -15,6 +15,7 @@ using Windows.Media.Capture;
 using Windows.Media.Core;
 using Windows.Media.FaceAnalysis;
 using Windows.Media.MediaProperties;
+using Windows.Storage;
 using Windows.System;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
@@ -32,8 +33,6 @@ using LogLib;
 
 namespace RoboShell
 {
-
-
     public sealed partial class MainPage : Page
     {
 
@@ -224,19 +223,8 @@ namespace RoboShell
                 ViewFinder.Source = MC;
             }
 
-            // Create face detection
-            var def = new FaceDetectionEffectDefinition();
-            def.SynchronousDetectionEnabled = false;
-            def.DetectionMode = FaceDetectionMode.HighPerformance;
-            FaceDetector = (FaceDetectionEffect)(await MC.AddVideoEffectAsync(def, MediaStreamType.VideoPreview));
-            FaceDetector.FaceDetected += FaceDetectedEvent;
-            FaceDetector.DesiredDetectionInterval = TimeSpan.FromMilliseconds(100);
-            FaceDetector.Enabled = true;
-            LogLib.Log.Trace("Ready to start face recognition");
-            await MC.StartPreviewAsync();
-            LogLib.Log.Trace("Face Recognition Started");
-            var props = MC.VideoDeviceController.GetMediaStreamProperties(MediaStreamType.VideoPreview);
-            VideoProps = props as VideoEncodingProperties;
+            
+            
 
 
         }
@@ -246,7 +234,53 @@ namespace RoboShell
         private async Task InitLongRunning() {
             var spk = new UWPLocalSpeaker(media, Windows.Media.SpeechSynthesis.VoiceGender.Female);
             CoreWindow.GetForCurrentThread().KeyDown += KeyPressed;
-            RE = BracketedRuleEngine.LoadBracketedKb(Config.KBFileName);
+
+            try {
+                HttpResponseMessage httpResponseMessage = await httpClient.GetAsync("https://github.com/");
+
+                if (httpResponseMessage.IsSuccessStatusCode) {
+
+                    byte[] git_kb = await httpClient.GetByteArrayAsync(Config.GitKBUrl);
+
+                    StorageFolder storageFolder = ApplicationData.Current.LocalFolder;
+                    StorageFile sampleFile =
+                        await storageFolder.CreateFileAsync(Config.GitKBFileName, CreationCollisionOption.ReplaceExisting);
+                    await Windows.Storage.FileIO.WriteBytesAsync(sampleFile, git_kb);
+                    RE = BracketedRuleEngine.LoadBracketedKb(sampleFile);
+                    Log.Trace("Using actual git's config version");
+                }
+                else {
+                    try {
+                        StorageFolder storageFolder = ApplicationData.Current.LocalFolder;
+                        StorageFile sampleFile = await storageFolder.GetFileAsync(Config.GitKBFileName);
+                        RE = BracketedRuleEngine.LoadBracketedKb(sampleFile);
+                        Log.Trace("Using local git's config version");
+
+                    }
+                    catch (Exception) {
+                        RE = BracketedRuleEngine.LoadBracketedKb(Config.KBFileName);
+                        Log.Trace("Using local nongit config version");
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                
+                try
+                {
+                    StorageFolder storageFolder = ApplicationData.Current.LocalFolder;
+                    StorageFile sampleFile = await storageFolder.GetFileAsync(Config.GitKBFileName);
+                    RE = BracketedRuleEngine.LoadBracketedKb(sampleFile);
+                    Log.Trace("Using local git's config version");
+                }
+                catch (Exception)
+                {
+                    RE = BracketedRuleEngine.LoadBracketedKb(Config.KBFileName);
+                    Log.Trace("Using local nongit config version");
+                }
+            }
+           
+
             RE.SetSpeaker(spk);
             RE.Initialize();
             RE.SetExecutor(ExExecutor);
@@ -261,6 +295,20 @@ namespace RoboShell
                 ArduinoInputTimer.Start();
             }
             media.MediaEnded += EndSpeech;
+
+            // Create face detection
+            var def = new FaceDetectionEffectDefinition();
+            def.SynchronousDetectionEnabled = false;
+            def.DetectionMode = FaceDetectionMode.HighPerformance;
+            FaceDetector = (FaceDetectionEffect)(await MC.AddVideoEffectAsync(def, MediaStreamType.VideoPreview));
+            FaceDetector.FaceDetected += FaceDetectedEvent;
+            FaceDetector.DesiredDetectionInterval = TimeSpan.FromMilliseconds(100);
+            LogLib.Log.Trace("Ready to start face recognition");
+            await MC.StartPreviewAsync();
+            LogLib.Log.Trace("Face Recognition Started");
+            var props = MC.VideoDeviceController.GetMediaStreamProperties(MediaStreamType.VideoPreview);
+            VideoProps = props as VideoEncodingProperties;
+            FaceDetector.Enabled = true;
 
             InferenceTimer.Start();
 
