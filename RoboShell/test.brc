@@ -104,27 +104,27 @@
 ($Stage == "Bye") => (
 	(shutUp) and
 	(GPIO 100 0,0,0,0 5000) and 
-	(say "Сеанс связи окончен") and 
+	(sayFast "Сеанс связи окончен") and 
 	(clear $Stage) and 
 	(AgeSay = "") and (Name = "") and (isPaused = "") and (inQuiz = "") and (stopQuiz = "") and (sayGood = "") and (lastAnswer = "") and (stayActive)
 )
 
 ($Event == "FaceIn") => (
 	(GPIO 100 1,0,1,0 10000) and 
-	(say "{Хьюстон, Хьюстон, как слышно?| Это ваш первый сеанс связи с подушкой. Поехали!|Земля, Земля, это подушка, приём}") and 
+	(sayFast "{Хьюстон, Хьюстон, как слышно?| Это ваш первый сеанс связи с подушкой. Поехали!|Земля, Земля, это подушка, приём}") and 
 	(Stage = "startConversation") and 
 	(clear $Event)
 )
 
 (($Event == "FaceIn") and ($FaceCount > 1)) => (
-	(say "отойдите лишние люди! оставьте одного, того, кто осмелится полететь со мной в космос!") and 
+	(sayFast "отойдите лишние люди! оставьте одного, того, кто осмелится полететь со мной в космос!") and 
 	(Stage = "goaway") and 
 	(clear $Event) and (clear $FaceCount)
 )
 
 ($Stage == "goaway") => (ext:Recapture "After:5")
 (($Stage == "goaway") and ($FaceCount == 1)) => (
-	(say "наконец-то ты один!") and 
+	(sayFast "наконец-то ты один!") and 
 	(Stage = "startConversation") and 
 	(clear $Event)
 )
@@ -155,13 +155,13 @@
 )
 
 (($Stage == "aboutMe1") and ($isPlaying != "True")) => (
-	(say "{Если ты думаешь, что я подушка, то ты не ошибаешься.|Меня зовут Лариса Сергеевна, для тебя просто Лариса.|Я самая уникальная робо-подушка во вселенной, буду помогать тебе в полете.}") 
+	(sayFast "{Если ты думаешь, что я подушка, то ты не ошибаешься.|Меня зовут Лариса Сергеевна, для тебя просто Лариса.|Я самая уникальная робо-подушка во вселенной, буду помогать тебе в полете.}") 
 	and (Stage = "aboutMe2")
 )
 
 (($Stage == "aboutMe2") and ($isPlaying != "True")) => (
 	(GPIO 100 1,1,0,0 3000) and
-	(say "{Умею танцевать, ремонтировать двигатель космического корабля, проверять твои знания, осуществлять общее руководство полетом.|Я прилетела с необычной планеты, где президент Илон Маск.}") 
+	(sayFast "{Умею танцевать, ремонтировать двигатель космического корабля, проверять твои знания, осуществлять общее руководство полетом.|Я прилетела с необычной планеты, где президент Илон Маск.}") 
 	and (Stage = "MeaninglessQuestion")
 )
 
@@ -176,7 +176,7 @@
 
 
 (($Stage == "meaninglessQuestion1") and ($isPlaying != "True")) => (
-	(say "Это твой первый полет в космос или ты бывалый? ") 
+	(sayFast "Это твой первый полет в космос или ты бывалый? ") 
 	and (GPIO 100 1,0,1,1 10000)
 	and (Stage = "meaninglessResponseWait1") and (stayActive)
 )
@@ -188,7 +188,7 @@
 
 (($Stage == "meaninglessResponse1") and ($isPlaying != "True")) => (
 	(GPIO 100 0,1,0,0 4000)
-	and (say "я за тебя рада ") 
+	and (sayFast "я за тебя рада ") 
 	and (Stage = "preFactQuestion")
 	and (MeaninglessQuestionStage = "False") and (stayActive)
 )
@@ -196,7 +196,7 @@
 
 
 (($Stage == "meaninglessQuestion2") and ($isPlaying != "True")) => (
-	(say "Ненавидишь ли ты блокчейн так же, как и я? ") 
+	(sayFast "Ненавидишь ли ты блокчейн так же, как и я? ") 
 	and (GPIO 100 1,0,1,1 10000)
 	and (Stage = "meaninglessResponseWait2") and (stayActive)
 )
@@ -213,21 +213,21 @@
 
 (($Stage == "meaninglessResponseNo2") and ($isPlaying != "True")) => (
 	(GPIO 100 0,1,0,0 4000)
-	and (say "Если ты ещё и майнер, развернись и беги, космос не для тебя! ") 
+	and (sayFast "Если ты ещё и майнер, развернись и беги, космос не для тебя! ") 
 	and (Stage = "preFactQuestion")
 	and (MeaninglessQuestionStage = "False") and (stayActive)
 )
 
 (($Stage == "meaninglessResponseYes2") and ($isPlaying != "True")) => (
 	(GPIO 100 0,1,0,0 4000)
-	and (say "Правильно!") 
+	and (sayFast "Правильно!") 
 	and (Stage = "preFactQuestion")
 	and (MeaninglessQuestionStage = "False") and (stayActive)
 )
 
 
 (($Stage == "meaninglessQuestion3") and ($isPlaying != "True")) => (
-	((say "C3PO просто красавчик! А ты его тоже любишь скажи? ") or (say "Любишь ли ты Илона Маска так же, как люблю его я?"))
+	((sayFast "C3PO просто красавчик! А ты его тоже любишь скажи? ") or (sayFast "Любишь ли ты Илона Маска так же, как люблю его я?"))
 	and (GPIO 100 1,0,1,1 4000)
 	and (Stage = "meaninglessResponseWait3") and (stayActive)
 )
@@ -239,13 +239,13 @@
 
 (($Stage == "meaninglessResponse3") and ($isPlaying != "True")) => (
 	(GPIO 100 0,1,0,0 4000)
-	and ((say "Мне он очень по душе") or (say "как же он хорош"))
+	and ((sayFast "Мне он очень по душе") or (sayFast "как же он хорош"))
 	and (Stage = "preFactQuestion")
 	and (MeaninglessQuestionStage = "False") and (stayActive)
 )
 
 (($Stage == "preFactQuestion") and ($isPlaying != "True")) => (
-	(say "Хочешь, расскажу что-нибудь занятное про космос?") and
+	(sayFast "Хочешь, расскажу что-нибудь занятное про космос?") and
 	(GPIO 100 1,0,1,1 4000) and
 	(Stage = "preFactResponseWait")
 )
@@ -262,13 +262,13 @@
 
 (($Stage == "preFactResponse") and ($isPlaying != "True")) => (
 	(
-	(say "Медведи в России встречаются в 19 раз чаще, чем астероиды в Главном астероидном поясе") or
-	(say "Если заплакать в космосе, слезы останутся на глазах и лице.") or
-	(say "Газовое облако в созвездии Орел содержит достаточно алкоголя, чтобы создать 200 септиллионов литров пива.") or
-	(say "Если бы вы упали в черную дыру, вас бы растянуло как лапшу. Явление называется спаггетификация.") or 
-	(say "Если ничто не потревожит Луну например, метеорит, то следы, оставленные на ее поверхности, останутся нетронутыми навсегда. В отличие от Земли тут нет эрозии, вызванной ветром и водой.") or
-	(say "Навозные жуки ориентируются по Млечному пути.Птицы, тюлени и люди используют звезды для ориентирования, но африканские навозные жуки используют целую галактику.") or
-	(say "Более двухста двенадцати лет вам бы понадобилось, чтобы на обычном автомобиле добраться до Солнца.")
+	(sayFast "Медведи в России встречаются в 19 раз чаще, чем астероиды в Главном астероидном поясе") or
+	(sayFast "Если заплакать в космосе, слезы останутся на глазах и лице.") or
+	(sayFast "Газовое облако в созвездии Орел содержит достаточно алкоголя, чтобы создать 200 септиллионов литров пива.") or
+	(sayFast "Если бы вы упали в черную дыру, вас бы растянуло как лапшу. Явление называется спаггетификация.") or 
+	(sayFast "Если ничто не потревожит Луну например, метеорит, то следы, оставленные на ее поверхности, останутся нетронутыми навсегда. В отличие от Земли тут нет эрозии, вызванной ветром и водой.") or
+	(sayFast "Навозные жуки ориентируются по Млечному пути.Птицы, тюлени и люди используют звезды для ориентирования, но африканские навозные жуки используют целую галактику.") or
+	(sayFast "Более двухста двенадцати лет вам бы понадобилось, чтобы на обычном автомобиле добраться до Солнца.")
 	)
 	and (Stage = "preQuizQuestion")
 )
@@ -276,7 +276,7 @@
 
 
 (($Stage == "preQuizQuestion") and ($isPlaying != "True")) => (
-	(GPIO 100 1,0,1,1 20000) and (say "предлагаю викторину") and (Stage = "QuizQuest")
+	(GPIO 100 1,0,1,1 20000) and (sayFast "предлагаю викторину") and (Stage = "QuizQuest")
 )
 
 (($Stage == "QuizQuest") and ($ArduinoInput == "0100")) => (
@@ -291,7 +291,7 @@
 
 (($Stage == "QuizQuest") and ($ArduinoInput == "0001")) => (
 	(GPIO 100 0,1,0,0 4000) 
-	and (((say "впрочем, я решу за тебя. не будет викторины.") and (Stage = "Diagn")) or ((say "впрочем, я решу за тебя. будет викторина.") and (Stage = "QuizStart")))
+	and (((sayFast "впрочем, я решу за тебя. не будет викторины.") and (Stage = "Diagn")) or ((sayFast "впрочем, я решу за тебя. будет викторина.") and (Stage = "QuizStart")))
 )
 
 (($Stage == "QuizStart") and ($isPlaying != "True")) => (
@@ -307,7 +307,7 @@
 
 
 (($Stage == "Diag") and ($isPlaying != "True")) => (
-	(GPIO 100 1,0,1,1 4000) and (say "предлагаю диагностику") and (Stage = "DiagQuest")
+	(GPIO 100 1,0,1,1 4000) and (sayFast "предлагаю диагностику") and (Stage = "DiagQuest")
 )
 
 (($Stage == "DiagQuest") and ($ArduinoInput == "0100")) => (
@@ -322,7 +322,7 @@
 
 (($Stage == "DiagQuest") and ($ArduinoInput == "0001")) => (
 	(GPIO 100 0,1,0,0 5000) 
-	and (((say "впрочем, я решу за тебя. не будет диагностики.") and (Stage = "Disco")) or ((say "впрочем, я решу за тебя. будет диагностика.") and (Stage = "DiagStart")))
+	and (((sayFast "впрочем, я решу за тебя. не будет диагностики.") and (Stage = "Disco")) or ((sayFast "впрочем, я решу за тебя. будет диагностика.") and (Stage = "DiagStart")))
 )
 
 (($Stage == "DiagStart") and ($isPlaying != "True")) => (
@@ -330,21 +330,21 @@
 )
 
 (($Stage == "DiagStart") and ($inQuiz != "True") and ($isPlaying != "True") and ($lastAnswer == "True")) => (
-	(Stage = "Bye") and (sayGood = "False") and (say "Мне очень жаль, по-моему наш полет окончен!")
+	(Stage = "Bye") and (sayGood = "False") and (sayFast "Мне очень жаль, по-моему наш полет окончен!")
 )
 
 (($Stage == "DiagStart") and ($inQuiz != "True") and ($isPlaying != "True") and ($lastAnswer == "False")) => (
-	(Stage = "Disco") and (sayGood = "False") and (say "Кажется мы подружились с этими очаровательными, восьминогими, разумными паучками! Поздравляю, коллега!")
+	(Stage = "Disco") and (sayGood = "False") and (sayFast "Кажется мы подружились с этими очаровательными, восьминогими, разумными паучками! Поздравляю, коллега!")
 )
 
 (($Stage == "DiagStart") and ($inQuiz != "True") and ($isPlaying != "True") and ($lastAnswer == "None")) => (
-	(Stage = "Bye") and (sayGood = "False") and (say "ответа нет или он непонятен. кажется, наше путешествие успело завершиться.")
+	(Stage = "Bye") and (sayGood = "False") and (sayFast "ответа нет или он непонятен. кажется, наше путешествие успело завершиться.")
 )
 
 
 
 (($Stage == "Disco") and ($isPlaying != "True")) => (
-	(GPIO 100 1,0,1,1 25000) and (say "давай танцевать! что думаешь?") and (Stage = "DanceQuest")
+	(GPIO 100 1,0,1,1 25000) and (sayFast "давай танцевать! что думаешь?") and (Stage = "DanceQuest")
 )
 
 (($Stage == "DanceQuest") and ($ArduinoInput == "0100")) => (
