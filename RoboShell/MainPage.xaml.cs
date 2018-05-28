@@ -16,6 +16,8 @@ using Windows.Media.Capture;
 using Windows.Media.Core;
 using Windows.Media.FaceAnalysis;
 using Windows.Media.MediaProperties;
+using Windows.Networking;
+using Windows.Networking.Connectivity;
 using Windows.Storage;
 using Windows.System;
 using Windows.UI.Core;
@@ -235,6 +237,8 @@ namespace RoboShell
 
         private async Task InitLongRunning() {
             var spk = new UWPLocalSpeaker(media, Windows.Media.SpeechSynthesis.VoiceGender.Female);
+
+            spk.Speak($"мой адрес {GetLocalIp()}");
             CoreWindow.GetForCurrentThread().KeyDown += KeyPressed;
             Log.Trace("BEFORE receive actual kb");
 
@@ -317,6 +321,25 @@ namespace RoboShell
             InferenceTimer.Start();
 
         }
+
+
+        public static string GetLocalIp(HostNameType hostNameType = HostNameType.Ipv4)
+        {
+            var icp = NetworkInformation.GetInternetConnectionProfile();
+
+            if (icp?.NetworkAdapter == null) return null;
+            var hostname =
+                NetworkInformation.GetHostNames()
+                    .FirstOrDefault(
+                        hn =>
+                            hn.Type == hostNameType &&
+                            hn.IPInformation?.NetworkAdapter != null &&
+                            hn.IPInformation.NetworkAdapter.NetworkAdapterId == icp.NetworkAdapter.NetworkAdapterId);
+
+            // the ip address
+            return hostname?.CanonicalName;
+        }
+
 
         /// <summary>
         /// Срабатывает при локальном обнаружении лица на фотографии.

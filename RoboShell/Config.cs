@@ -14,7 +14,7 @@ namespace RoboShell
         public static bool Headless = false;
         public static string KBFileName = "test.brc";
         public static bool analyzeOnlyOneFace = true;
-        public static int[] InputPinsNumbers = { 6, 13, 19, 26 };
+        public static int[] InputPinsNumbers = { 12, 16, 20, 21 };
         public static double facesRelation = 1.5;
         public static double biggestFaceRelativeSize = 0.01;
         public static bool logArduino = true;
