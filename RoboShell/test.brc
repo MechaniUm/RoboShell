@@ -96,7 +96,7 @@
 )
 
 
-($Event == "FaceOut") => (
+(($Event == "FaceOut") and ($Stage != ""))=> (
 	(Stage = "Bye") and
 	(clear $Event)
 )
@@ -105,7 +105,7 @@
 	(shutUp) and
 	(GPIO 100 0,0,0,0 5000) and 
 	(sayFast "Сеанс связи окончен") and 
-	(clear $Stage) and 
+	(Stage = "") and 
 	(AgeSay = "") and (Name = "") and (isPaused = "") and (inQuiz = "") and (stopQuiz = "") and (sayGood = "") and (lastAnswer = "") and (stayActive)
 )
 
