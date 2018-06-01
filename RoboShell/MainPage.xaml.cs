@@ -238,7 +238,7 @@ namespace RoboShell
         private async Task InitLongRunning() {
             var spk = new UWPLocalSpeaker(media, Windows.Media.SpeechSynthesis.VoiceGender.Female);
 
-            spk.Speak($"мой адрес {GetLocalIp()}");
+            spk.Speak($"мой адрес не дом и не улица, мой адрес {GetLocalIp()} и точка");
             CoreWindow.GetForCurrentThread().KeyDown += KeyPressed;
             Log.Trace("BEFORE receive actual kb");
 

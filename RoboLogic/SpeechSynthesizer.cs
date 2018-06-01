@@ -25,10 +25,12 @@ namespace RoboLogic
         {
             this.Media = Media;
             this.Media.AutoPlay = true;
+            this.Media.Volume = 1.0;
             var v = (from x in SpeechSynthesizer.AllVoices
                      where (x.Gender == G && x.Language == "ru-RU")
                      select x).FirstOrDefault();
             if (v != null) Synthesizer.Voice = v;
+            Synthesizer.Options.AudioVolume = 1.0;
         }
 
         public async Task Speak(string s) {

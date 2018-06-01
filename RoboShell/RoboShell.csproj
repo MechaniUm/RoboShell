@@ -193,6 +193,7 @@
     <Content Include="Quizs\diag0.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <None Include="ClassDiagram1.cd" />
     <None Include="RoboShell_TemporaryKey.pfx" />
     <Content Include="test.brc">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
