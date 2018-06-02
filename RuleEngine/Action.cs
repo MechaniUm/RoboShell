@@ -809,13 +809,28 @@ namespace RuleEngineNet {
         private static Boolean stopExecution = false;
         private static Boolean executing = false;
         public override bool LongRunning => true;
-
-
+        private Boolean yesNoRequest = false;
+        private Boolean yesNoCancel = false;
+        public static long yesNoLastStartTime = 0L;
+        public static Boolean inYesNo = false;
         public override void Initialize() { }
 
 
         public GPIO(IEnumerable<int> signal, int time, int probability) {
             this.Signal = new List<int>(signal);
+            if (this.Signal[0] == 1 &&
+                this.Signal[1] == 0 &&
+                this.Signal[2] == 1 &&
+                this.Signal[3] == 1) {
+                yesNoRequest = true;
+            }
+            if (this.Signal[0] == 0 &&
+                this.Signal[1] == 1 &&
+                this.Signal[2] == 0 &&
+                this.Signal[3] == 0)
+            {
+                yesNoCancel = true;
+            }
             this.Time = time;
             this.Probability = probability;
             tokenSource2 = new CancellationTokenSource();
@@ -854,6 +869,17 @@ namespace RuleEngineNet {
             }
             
             long startTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            if (yesNoRequest) {
+                yesNoLastStartTime = startTime;
+                inYesNo = true;
+            }
+
+            if (yesNoCancel) {
+                yesNoLastStartTime = 0L;
+                inYesNo = false;
+            }
+            
+
             string debug = "";
             for (int i = 0; i < 4; ++i) {
                 if (Signal[i] == 1)

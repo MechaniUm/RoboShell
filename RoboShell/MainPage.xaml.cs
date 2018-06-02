@@ -138,6 +138,10 @@ namespace RoboShell
             Log.Trace($"AFTER {GetType().Name}.ExExecutor(): Cmd='{Cmd}', Param='{Param}'", Log.LogFlag.Debug);
         }
 
+        private static int[] ynCancel = { 0, 1, 0, 0 };
+        private static int[] ynReq = { 1, 0, 1, 1 };
+        private static GPIO yesNoRequestGPIO = new GPIO(ynReq, 2000, 100);
+        private static GPIO yesNoCancelGPIO = new GPIO(ynCancel, 2000, 100);
         private void ArduinoInput(object sender, object e)
         {
             string input = "";
@@ -150,6 +154,17 @@ namespace RoboShell
                 {
                     input += "0";
                 }
+            }
+
+            if (input == "0001") {
+                input = "9999";
+                yesNoCancelGPIO.Execute(RE.State);
+                Task.Delay(2000).Wait();
+                yesNoRequestGPIO.Execute(RE.State);
+            }
+            if ((DateTimeOffset.Now.ToUnixTimeMilliseconds() - GPIO.yesNoLastStartTime > 20000) && (input != "0100") && (input != "0010") && (input != "0001") && (GPIO.inYesNo)) {
+                input = "0001";
+                LogLib.Log.Trace($"fake");
             }
             if (input != "0000")
             {
@@ -302,6 +317,7 @@ namespace RoboShell
                 ArduinoInputTimer.Tick += ArduinoInput;
                 ArduinoInputTimer.Start();
             }
+            yesNoCancelGPIO.Execute(RE.State);
             media.MediaEnded += EndSpeech;
 
             // Create face detection
