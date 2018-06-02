@@ -139,18 +139,31 @@
 (($Event == "FaceRecognized") and ($Gender == "M") and ($Age in [60,76])) => (AgeSay = "старше пятидесяти лет")
 (($Event == "FaceRecognized") and ($Gender == "M") and ($Age in [75,999])) => (AgeSay = "лет семидесяти")
 
-(($Event == "FaceRecognized") and  ($Gender == "M")) => (NameSay = "{Астронавт|Космонавт|Земной мужчина}")
-(($Event == "FaceRecognized") and  ($Gender == "F")) => (NameSay = "{Астронавтка|Космонавтка|Земная женщина}")
+(($Event == "FaceRecognized") and  ($Gender == "M")) => (NameSay = "{Астронавт|Космонавт|Земной мужчина|Звездоплаватель|Покоритель космоса|Летун космический|Звездный странник|Космический странник|Исследователь|Автостопщик по галактике}")
+(($Event == "FaceRecognized") and  ($Gender == "F")) => (NameSay = "{Астронавтка|Космонавтка|Земная женщина|Звездоплавательница|Покорительница космоса|Летунья космическая|Звездная странница|Космическая странница|Исследовательница|Автостопщица по галактике}")
 
-(($Event == "FaceRecognized") and ($Gender == "M")) => (EmotionSay = "{${Emotion}:happiness=Весёлый|sadness=Грустный|surprise=Удивлённый|anger=Хмурый|neutral=Спокойный|Удивительный}")
-(($Event == "FaceRecognized") and ($Gender == "F")) => (EmotionSay = "{${Emotion}:happiness=Весёлая|sadness=Грустная|surprise=Удивлённая|anger=Хмурая|neutral=Спокойная|Удивительная}")
+
+(($Event == "FaceRecognized") and ($Gender == "M")) => (EmotionSay = "Удивительный")
+(($Event == "FaceRecognized") and ($Gender == "F")) => (EmotionSay = "Удивительная")
+
+(($Event == "FaceRecognized") and ($Gender == "M") and ($Emotion == "happiness")) => "(EmotionSay = "{Весёлый|Позитивный|Кавайный}")
+(($Event == "FaceRecognized") and ($Gender == "M") and ($Emotion == "sadness")) => "(EmotionSay = "{Грустный|Задумчивый|Печальный}")
+(($Event == "FaceRecognized") and ($Gender == "M") and ($Emotion == "surprise")) => "(EmotionSay = "Удивлённый")
+(($Event == "FaceRecognized") and ($Gender == "M") and ($Emotion == "anger")) => "(EmotionSay = "{Хмурый|Серьезный}")
+(($Event == "FaceRecognized") and ($Gender == "M") and ($Emotion == "neutral")) => "(EmotionSay = "{Спокойный|Умудрённый|Задумчивый|Няашный}")
+
+(($Event == "FaceRecognized") and ($Gender == "F") and ($Emotion == "happiness")) => "(EmotionSay = "{Весёлая|Позитивная|Кавайная}")
+(($Event == "FaceRecognized") and ($Gender == "F") and ($Emotion == "sadness")) => "(EmotionSay = "{Грустная|Задумчивая|Печальная}")
+(($Event == "FaceRecognized") and ($Gender == "F") and ($Emotion == "surprise")) => "(EmotionSay = "Удивлённая")
+(($Event == "FaceRecognized") and ($Gender == "F") and ($Emotion == "anger")) => "(EmotionSay = "{Хмурая|Серьезная}")
+(($Event == "FaceRecognized") and ($Gender == "F") and ($Emotion == "neutral")) => "(EmotionSay = "{Спокойная|Умудрённая|Задумчивая|Няашная}")
 
 ($Event == "FaceRecognized") => (Name = "${NameSay} ${AgeSay} ${EmotionSay}")
 
 (($Event == "FaceRecognized") and ($Stage == "startConversation") and ($isPlaying != "True"))=> (
 	((GPIO 100 1,1,1,0 4000) or (GPIO 100 0,0,0,1 4000)) and
 	(userName = "{${Gender}:M=Астронавт|F=Астронавтка}") and 
-	((say "${Name}! то, что ты ${EmotionSay} -- это нормально для {твоего вида|твоей планеты}.") or (say "Приветствую тебя, ${Name}! ")) and 
+	((say "${Name}! то, что ты ${EmotionSay} -- это нормально для {твоего вида|твоей планеты|твоей космической расы|жителя твоей планеты|человека|вида высших приматов|гуманоидов|прямоходящих разумных существ|обитателей Земли}.") or (say "Приветствую тебя, ${Name}! ")) and 
 	(Stage = "aboutMe1")
 )
 
@@ -177,7 +190,7 @@
 
 (($Stage == "meaninglessQuestion1") and ($isPlaying != "True")) => (
 	(sayFast "Это твой первый полет в космос или ты бывалый? ") 
-	and (GPIO 100 1,0,1,1 10000)
+	and (GPIO 100 1,0,1,1 4000)
 	and (Stage = "meaninglessResponseWait1") and (stayActive)
 )
 
@@ -197,7 +210,7 @@
 
 (($Stage == "meaninglessQuestion2") and ($isPlaying != "True")) => (
 	(sayFast "Ненавидишь ли ты блокчейн так же, как и я? ") 
-	and (GPIO 100 1,0,1,1 10000)
+	and (GPIO 100 1,0,1,1 4000)
 	and (Stage = "meaninglessResponseWait2") and (stayActive)
 )
 
@@ -251,14 +264,21 @@
 )
 
 (($Stage == "preFactResponseWait") and ($ArduinoInput == "0100")) => (
-	(GPIO 100 1,0,1,1 4000) and 
+	(GPIO 100 0,1,0,0 4000) and 
 	(Stage = "preFactResponse")
 )
 
 (($Stage == "preFactResponseWait") and ($ArduinoInput == "0010")) => (
-	(GPIO 100 1,0,1,1 4000) and 
+	(GPIO 100 0,1,0,0 4000) and 
 	(Stage = "preQuizQuestion")
 )
+
+
+(($Stage == "preFactResponseWait") and ($ArduinoInput == "0001")) => (
+	(GPIO 100 0,1,0,0 4000) 
+	and (((sayFast "расскажу всё таки факт") and (Stage = "preFactResponse")) or ((sayFast "не скажу факт") and (Stage = "preQuizQuestion")))
+)
+
 
 (($Stage == "preFactResponse") and ($isPlaying != "True")) => (
 	(
@@ -276,7 +296,7 @@
 
 
 (($Stage == "preQuizQuestion") and ($isPlaying != "True")) => (
-	(GPIO 100 1,0,1,1 20000) and (sayFast "предлагаю викторину") and (Stage = "QuizQuest")
+	(GPIO 100 1,0,1,1 4000) and (sayFast "предлагаю викторину") and (Stage = "QuizQuest")
 )
 
 (($Stage == "QuizQuest") and ($ArduinoInput == "0100")) => (
@@ -297,7 +317,10 @@
 (($Stage == "QuizStart") and ($isPlaying != "True")) => (
 	(sayGood = "True") and (
 	(quiz "quiz1.csv" randomOrder 3:6) or
-	(quiz "quiz2.csv" randomOrder 3:6))
+	(quiz "quiz2.csv" randomOrder 3:6) or
+	(quiz "quiz3.csv" randomOrder 4:7) or
+	(quiz "quiz4.csv" randomOrder 4:7) or
+	(quiz "quiz5.csv" randomOrder 3:6))
 )
 
 (($Stage == "QuizStart") and ($inQuiz != "True") and ($isPlaying != "True")) => (
