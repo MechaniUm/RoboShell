@@ -193,6 +193,15 @@
     <Content Include="Quizs\diag0.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="Quizs\quiz3.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Quizs\quiz4.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Quizs\quiz5.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <None Include="RoboShell_TemporaryKey.pfx" />
     <Content Include="test.brc">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
