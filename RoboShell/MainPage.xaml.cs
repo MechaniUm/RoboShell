@@ -252,13 +252,20 @@ namespace RoboShell
 
         private async Task InitLongRunning() {
             var spk = new UWPLocalSpeaker(media, Windows.Media.SpeechSynthesis.VoiceGender.Female);
+            String localIp = GetLocalIp();
+            if (localIp == null) {
+                localIp = "127.0.0.1";
+            }
 
-            spk.Speak($"мой адрес не дом и не улица, мой адрес {GetLocalIp()} и точка");
+            if (localIp == "") {
+                localIp = "127.0.0.1";
+            }
+            spk.Speak($"мой адрес не дом и не улица, мой адрес {localIp} и точка");
             CoreWindow.GetForCurrentThread().KeyDown += KeyPressed;
             Log.Trace("BEFORE receive actual kb");
-
+            Boolean inetAccess = false;
             try {
-                HttpResponseMessage httpResponseMessage = await httpClient.GetAsync("https://github.com/");
+                HttpResponseMessage httpResponseMessage = await httpClient.GetAsync("https://ya.ru/");
 
                 if (httpResponseMessage.IsSuccessStatusCode) {
 
@@ -269,6 +276,7 @@ namespace RoboShell
                         await storageFolder.CreateFileAsync(Config.GitKBFileName, CreationCollisionOption.ReplaceExisting);
                     await Windows.Storage.FileIO.WriteBytesAsync(sampleFile, git_kb);
                     RE = BracketedRuleEngine.LoadBracketedKb(sampleFile);
+                    inetAccess = true;
                     Log.Trace("Using actual git's config version");
                 }
                 else {
@@ -307,6 +315,12 @@ namespace RoboShell
             RE.SetSpeaker(spk);
             RE.Initialize();
             RE.SetExecutor(ExExecutor);
+            if (inetAccess) {
+                RE.SetVar("InetAccess", "True");
+            }
+            else {
+                RE.SetVar("InetAccess", "False");
+            }
             FaceWaitTimer.Tick += StartDialog;
             DropoutTimer.Tick += FaceDropout;
             PreDropoutTimer.Tick += PreDropout;
