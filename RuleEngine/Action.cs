@@ -20,6 +20,8 @@ using CsvHelper;
 using RuleEngineNet;
 using RuleEngineUtils;
 using LogLib;
+using UnidecodeSharpFork;
+
 // ReSharper disable StringLastIndexOfIsCultureSpecific.1
 
 // ReSharper disable StringIndexOfIsCultureSpecific.1
@@ -374,6 +376,20 @@ namespace RuleEngineNet {
 
             return action;
         }
+
+        private static string illegal = " *:/?\\\"<>|+.!@%,";
+
+        public string decode(string obj)
+        {
+            var res = obj.Unidecode();
+            foreach (var c in illegal)
+            {
+                res = res.Replace(c, '_');
+            }
+
+            return res.ToLower().Trim('_').Replace("__", "_");
+        }
+
     }
 
 
@@ -600,6 +616,13 @@ namespace RuleEngineNet {
                 Task.Run(async () => {
                     SpeechSynthesisStream speechSynthesisStream = await Speaker.Synthesizer.SynthesizeTextToStreamAsync(stringToSay);
                     sentencesPossible.Add(new Tuple<string, SpeechSynthesisStream>(stringToSay, speechSynthesisStream));
+                    using (var reader = new DataReader(speechSynthesisStream))
+                    {
+                        await reader.LoadAsync((uint)speechSynthesisStream.Size);
+                        IBuffer buffer = reader.ReadBuffer((uint)speechSynthesisStream.Size);
+                        var f = await ApplicationData.Current.LocalFolder.CreateFileAsync(decode(stringToSay) + ".wav", CreationCollisionOption.ReplaceExisting);
+                        await FileIO.WriteBufferAsync(f, buffer);
+                    }
                 }).Wait();
             }
         }
@@ -619,7 +642,7 @@ namespace RuleEngineNet {
             SayFastHelper(sentencesPossible.OneOf(), S);
             AfterLog();
         }
-
+        
         public static SayFast Parse(XElement X)
         {
             return new SayFast(X.Attribute("Text").Value, 100);
@@ -633,7 +656,10 @@ namespace RuleEngineNet {
             }
             isPlaying = true;
             S.Assign("isPlaying", "True");
-            await Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunTaskAsync(() => Speaker.Speak(speechSynthesisStreamTuple.Item2));
+            var u = await ApplicationData.Current.LocalFolder.GetFileAsync(decode(speechSynthesisStreamTuple.Item1) + ".wav");
+            
+            
+            await Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunTaskAsync(() => Speaker.PlayFileAsync(new Uri("ms-appdata:///local/" + decode(speechSynthesisStreamTuple.Item1) + ".wav")));
             await Task.Delay(TimeSpan.FromMilliseconds(500));
             while (Speaker.Media.CurrentState != MediaElementState.Closed && Speaker.Media.CurrentState != MediaElementState.Stopped && Speaker.Media.CurrentState != MediaElementState.Paused)
             {
@@ -644,6 +670,7 @@ namespace RuleEngineNet {
             AfterLog("SayFastHelper", $"Text='{speechSynthesisStreamTuple.Item1}'");
         }
 
+        
     }
 
     public class CompareAnswers : Action {
@@ -924,7 +951,7 @@ namespace RuleEngineNet {
         public int lengthUpperBound;
         public static UWPLocalSpeaker Speaker;
         private IList<Tuple<string, bool?, string>> _quizText = new List<Tuple<string, bool?, string>>();
-        private readonly IList<Tuple<SpeechSynthesisStream, bool?, SpeechSynthesisStream>> _quiz = new List<Tuple<SpeechSynthesisStream, bool?, SpeechSynthesisStream>>();
+        private readonly IList<Tuple<string, bool?, string>> _quiz = new List<Tuple<string, bool?, string>>();
         private static IEnumerable<int> QUESTION_SIGNAL = new []{1, 0, 1, 1};
         private static IEnumerable<int> DEFAULT_SIGNAL = new[] { 0, 1, 0, 0 };
 
@@ -938,6 +965,8 @@ namespace RuleEngineNet {
         public override bool LongRunning => false;
         private Random random = new Random();
 
+        private IRandomAccessStreamWithContentType allOk;
+        private IRandomAccessStreamWithContentType youErrored;
 
         public Quiz(string quizFileName)
         {
@@ -977,11 +1006,62 @@ namespace RuleEngineNet {
 
         public override void Initialize() {
             Task.Run(async () => {
+
+                var youMadeErrorsListen = await Speaker.Synthesizer.SynthesizeTextToStreamAsync($"ты допускал ошибки. внимай.");
+                using (var reader = new DataReader(youMadeErrorsListen))
+                {
+                    await reader.LoadAsync((uint)youMadeErrorsListen.Size);
+                    IBuffer buffer = reader.ReadBuffer((uint)youMadeErrorsListen.Size);
+                    var desiredName1 = "quiz_" + decode("ты допускал ошибки. внимай.") + ".wav";
+                    var f = await ApplicationData.Current.LocalFolder.CreateFileAsync(desiredName1, CreationCollisionOption.ReplaceExisting);
+                    await FileIO.WriteBufferAsync(f, buffer);
+                }
+                //var u1 = await ApplicationData.Current.LocalFolder.GetFileAsync("quiz_" + decode("ты допускал ошибки. внимай.") + ".wav");
+                //youErrored = await u1.OpenReadAsync();
+
+
+                var youDidNotMadeErrors = await Speaker.Synthesizer.SynthesizeTextToStreamAsync("всё правильно");
+                using (var reader = new DataReader(youDidNotMadeErrors))
+                {
+                    await reader.LoadAsync((uint)youDidNotMadeErrors.Size);
+                    IBuffer buffer = reader.ReadBuffer((uint)youDidNotMadeErrors.Size);
+                    var desiredName1 = "quiz_" + decode("всё правильно") + ".wav";
+                    var f = await ApplicationData.Current.LocalFolder.CreateFileAsync(desiredName1, CreationCollisionOption.ReplaceExisting);
+                    await FileIO.WriteBufferAsync(f, buffer);
+                }
+                //var u2 = await ApplicationData.Current.LocalFolder.GetFileAsync("quiz_" + decode("всё правильно") + ".wav");
+                //allOk = await u2.OpenReadAsync();
+
                 for (var i = 0; i < _quizText.Count; i++) {
-                    _quiz.Add(new Tuple<SpeechSynthesisStream, bool?, SpeechSynthesisStream>(
-                        await Speaker.Synthesizer.SynthesizeTextToStreamAsync(_quizText.ElementAt(i).Item1),
+                    var speechSynthesisStream1 = await Speaker.Synthesizer.SynthesizeTextToStreamAsync(_quizText.ElementAt(i).Item1);
+                    var speechSynthesisStream3 = await Speaker.Synthesizer.SynthesizeTextToStreamAsync(_quizText.ElementAt(i).Item3);
+                    
+                    using (var reader = new DataReader(speechSynthesisStream1))
+                    {
+                        await reader.LoadAsync((uint)speechSynthesisStream1.Size);
+                        IBuffer buffer = reader.ReadBuffer((uint)speechSynthesisStream1.Size);
+                        var desiredName1 = "quiz_" + decode(_quizText.ElementAt(i).Item1) + ".wav";
+                        var f = await ApplicationData.Current.LocalFolder.CreateFileAsync(desiredName1, CreationCollisionOption.ReplaceExisting);
+                        await FileIO.WriteBufferAsync(f, buffer);
+                    }
+                    using (var reader = new DataReader(speechSynthesisStream3))
+                    {
+                        await reader.LoadAsync((uint)speechSynthesisStream3.Size);
+                        IBuffer buffer = reader.ReadBuffer((uint)speechSynthesisStream3.Size);
+                        var desiredName3 = "quiz_" + decode(_quizText.ElementAt(i).Item3) + ".wav";
+                        var f = await ApplicationData.Current.LocalFolder.CreateFileAsync(desiredName3, CreationCollisionOption.ReplaceExisting);
+                        await FileIO.WriteBufferAsync(f, buffer);
+                    }
+
+                    var u21 = await ApplicationData.Current.LocalFolder.GetFileAsync("quiz_" + decode(_quizText.ElementAt(i).Item1) + ".wav");
+                    var s21 = await u21.OpenReadAsync();
+
+                    var u22 = await ApplicationData.Current.LocalFolder.GetFileAsync("quiz_" + decode(_quizText.ElementAt(i).Item3) + ".wav");
+                    var s22 = await u22.OpenReadAsync();
+
+                    _quiz.Add(new Tuple<string, bool?, string>("ms-appdata:///local/" + "quiz_" + decode(_quizText.ElementAt(i).Item1) + ".wav",
                         _quizText.ElementAt(i).Item2,
-                        await Speaker.Synthesizer.SynthesizeTextToStreamAsync(_quizText.ElementAt(i).Item3)));
+                        "ms-appdata:///local/" + "quiz_" + decode(_quizText.ElementAt(i).Item3) + ".wav"));
                 }
             }).Wait();
         }
@@ -1046,7 +1126,7 @@ namespace RuleEngineNet {
                 
                 Log.Trace("continuing");
 
-                while (Say.isPlaying) {
+                while (SayFast.isPlaying) {
                     await Task.Delay(TimeSpan.FromMilliseconds(300));
                 }
                 var questionToAskPosition = questionsToAsk[i];
@@ -1113,14 +1193,16 @@ namespace RuleEngineNet {
                 if (S["sayGood"] == "True") {
                     if (result.Item1.Count > 0)
                     {
-                        await SpeakingFunction(S, await Speaker.Synthesizer.SynthesizeTextToStreamAsync($"ты допускал ошибки. процент правильных ответов {result.Item2}. внимай."));
+                        //var youMadeErrorsListen = await Speaker.Synthesizer.SynthesizeTextToStreamAsync($"ты допускал ошибки. внимай.");
+                        await SpeakingFunction(S, "ms-appdata:///local/" + "quiz_" + decode("ты допускал ошибки. внимай.") + ".wav");
                         foreach (var i in result.Item1)
                         {
                             await SpeakingFunction(S, _quiz.ElementAt(questionsToAsk[i]).Item3);
                         }
                     }
                     else if (result.Item1.Count == 0) {
-                        await SpeakingFunction(S, await Speaker.Synthesizer.SynthesizeTextToStreamAsync("всё правильно"));
+                        //var youDidNotMadeErrors = await Speaker.Synthesizer.SynthesizeTextToStreamAsync("всё правильно");
+                        await SpeakingFunction(S, "ms-appdata:///local/" + "quiz_" + decode("всё правильно") + ".wav");
                     }
                 }
             }
@@ -1128,11 +1210,12 @@ namespace RuleEngineNet {
 
             S.Assign("inQuiz", "False");
 
-            async Task SpeakingFunction(State state, SpeechSynthesisStream s) {
+            async Task SpeakingFunction(State state, string s) {
                 Say.isPlaying = true;
+                SayFast.isPlaying = true;
                 state.Assign("isPlaying", "True");
                 await Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunTaskAsync(() =>
-                    Say.Speaker.Speak(s));
+                    Say.Speaker.PlayFileAsync(new Uri(s)));
                 await Task.Delay(TimeSpan.FromMilliseconds(500));
                 while (Say.Speaker.Media.CurrentState != MediaElementState.Closed &&
                        Say.Speaker.Media.CurrentState != MediaElementState.Stopped &&
@@ -1142,6 +1225,7 @@ namespace RuleEngineNet {
                 state.Assign("isPlaying", "False");
 
                 Say.isPlaying = false;
+                SayFast.isPlaying = false;
             }
         }
 

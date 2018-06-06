@@ -312,7 +312,7 @@
 
 (($Stage == "QuizQuest") and ($ArduinoInput == "0010")) => (
 	(GPIO 100 0,1,0,0 4000)
-	and (Stage = "Diag")
+	and (Stage = "QuizStart")
 )
 
 (($Stage == "QuizQuest") and ($ArduinoInput == "0001")) => (
@@ -322,11 +322,11 @@
 
 (($Stage == "QuizStart") and ($isPlaying != "True")) => (
 	(sayGood = "True") and (
-	(quiz "quiz1.csv" randomOrder 3:6) or
-	(quiz "quiz2.csv" randomOrder 3:6) or
-	(quiz "quiz3.csv" randomOrder 4:7) or
-	(quiz "quiz4.csv" randomOrder 4:7) or
-	(quiz "quiz5.csv" randomOrder 3:6))
+	(quiz "quiz1.csv" randomOrder 6:6) or
+	(quiz "quiz2.csv" randomOrder 6:6) or
+	(quiz "quiz3.csv" randomOrder 7:7) or
+	(quiz "quiz4.csv" randomOrder 7:7) or
+	(quiz "quiz5.csv" randomOrder 6:6))
 )
 
 (($Stage == "QuizStart") and ($inQuiz != "True") and ($isPlaying != "True")) => (

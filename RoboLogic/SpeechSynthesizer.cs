@@ -46,10 +46,10 @@ namespace RoboLogic
 
         public async Task Speak(SpeechSynthesisStream s)
         {
-            Media.SetSource(s, s.ContentType);
-            Media.AutoPlay = true;
-            Media.Play();
+            PlayAsync(s);
         }
+
+
 
         public void ShutUp() {
             Media.Stop();
@@ -62,6 +62,18 @@ namespace RoboLogic
             Media.Play();
         }
 
+        public async Task PlayAsync(IRandomAccessStreamWithContentType i) {
+            Media.SetSource(i, i.ContentType);
+            Media.AutoPlay = true;
+            Media.Play();
+        }
+
+        public async Task PlayFileAsync(Uri audioUri)
+        {
+            Media.Source = audioUri;
+            Media.AutoPlay = true;
+            Media.Play();
+        }
         public async Task Play(Uri audioUri, int duration) {
 
             Media.Source = audioUri;
