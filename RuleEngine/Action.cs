@@ -1128,6 +1128,12 @@ namespace RuleEngineNet {
 
                 await SpeakingFunction(S, _quiz.ElementAt(questionToAskPosition).Item1);
 
+                while (Say.isPlaying)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(300));
+                }
+                await Play.Speaker.Play(new Uri("ms-appx:///Sounds/peep.wav"), 1000);
+               
                 try {
                     //bool isPaused = false;
                     _questionner.Execute(S);
