@@ -156,16 +156,6 @@ namespace RoboShell
                 }
             }
 
-            if (input == "0001") {
-                input = "9999";
-                yesNoCancelGPIO.Execute(RE.State);
-                Task.Delay(2000).Wait();
-                yesNoRequestGPIO.Execute(RE.State);
-            }
-            if ((DateTimeOffset.Now.ToUnixTimeMilliseconds() - GPIO.yesNoLastStartTime > 20000) && (input != "0100") && (input != "0010") && (input != "0001") && (GPIO.inYesNo)) {
-                input = "0001";
-                LogLib.Log.Trace($"fake");
-            }
             if (input != "0000")
             {
                 if (Config.logArduino)
