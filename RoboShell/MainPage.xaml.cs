@@ -246,6 +246,7 @@ namespace RoboShell
             String localIp = GetLocalIp();
             if (localIp == null) {
                 localIp = "127.0.0.1";
+                RE.SetVar("Internet", "False");
             }
 
             if (localIp == "") {
