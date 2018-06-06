@@ -85,7 +85,7 @@ namespace RoboShell
         bool CaptureAfterEnd = false; // do face capture after speech ends
 
         RuleEngine RE;
-
+        private bool offline = false;
         int BoringCounter = 60;
 
         public MainPage()
@@ -272,34 +272,37 @@ namespace RoboShell
                     Log.Trace("Using actual git's config version");
                 }
                 else {
-                    try {
-                        StorageFolder storageFolder = ApplicationData.Current.LocalFolder;
-                        StorageFile sampleFile = await storageFolder.GetFileAsync(Config.GitKBFileName);
-                        RE = BracketedRuleEngine.LoadBracketedKb(sampleFile);
-                        Log.Trace("Using local git's config version");
-
-                    }
-                    catch (Exception) {
+                    //try {
+                    //    StorageFolder storageFolder = ApplicationData.Current.LocalFolder;
+                    //    StorageFile sampleFile = await storageFolder.GetFileAsync(Config.GitKBFileName);
+                    //    RE = BracketedRuleEngine.LoadBracketedKb(sampleFile);
+                    //    Log.Trace("Using local git's config version");
+                    //    offline = true;
+                    //}
+                    //catch (Exception) {
                         RE = BracketedRuleEngine.LoadBracketedKb(Config.KBFileName);
                         Log.Trace("Using local nongit config version");
-                    }
+                        offline = true;
+                    //}
                 }
             }
             catch (Exception)
             {
                 
-                try
-                {
-                    StorageFolder storageFolder = ApplicationData.Current.LocalFolder;
-                    StorageFile sampleFile = await storageFolder.GetFileAsync(Config.GitKBFileName);
-                    RE = BracketedRuleEngine.LoadBracketedKb(sampleFile);
-                    Log.Trace("Using local git's config version");
-                }
-                catch (Exception)
-                {
+                //try
+                //{
+                //    StorageFolder storageFolder = ApplicationData.Current.LocalFolder;
+                //    StorageFile sampleFile = await storageFolder.GetFileAsync(Config.GitKBFileName);
+                //    RE = BracketedRuleEngine.LoadBracketedKb(sampleFile);
+                //    Log.Trace("Using local git's config version");
+                //    offline = true;
+                //}
+                //catch (Exception)
+                //{
                     RE = BracketedRuleEngine.LoadBracketedKb(Config.KBFileName);
                     Log.Trace("Using local nongit config version");
-                }
+                    offline = true;
+                //}
             }
             Log.Trace("AFTER receive actual kb");
 
@@ -519,11 +522,20 @@ namespace RoboShell
             PhotoInfoDTO photoInfo = await ProcessPhotoAsync(photoAsByteArray, Config.RecognizeEmotions);
             Log.Trace($"IN {GetType().Name}.RecognizeFace() AFTER ProcessPhotoAsync()", Log.LogFlag.Debug);
             if (photoInfo.FoundAndProcessedFaces) {
-                RE.SetVar("FaceCount", photoInfo.FaceCountAsString);
-                RE.SetVar("Gender", photoInfo.Gender);
-                RE.SetVar("Age", photoInfo.Age);
-                if (Config.RecognizeEmotions) {
-                    RE.SetVar("Emotion", photoInfo.Emotion);
+                if (photoInfo.Age == "offline") {
+                    RE.SetVar("FaceCount", "1");
+                    RE.SetVar("Gender", "offline");
+                    RE.SetVar("Age", "-1");
+                    RE.SetVar("Emotion", "offline");
+                    RE.SetVar("offline", "True");
+                }
+                else {
+                    RE.SetVar("FaceCount", photoInfo.FaceCountAsString);
+                    RE.SetVar("Gender", photoInfo.Gender);
+                    RE.SetVar("Age", photoInfo.Age);
+                    if (Config.RecognizeEmotions) {
+                        RE.SetVar("Emotion", photoInfo.Emotion);
+                    }
                 }
 
                 Log.Trace($"AFTER {GetType().Name}.RecognizeFace(): FaceCount='{RE.State.Eval("FaceCount")}', " +
@@ -548,29 +560,39 @@ namespace RoboShell
             var json = JsonConvert.SerializeObject(photoToProcessDTO);
 
             PhotoInfoDTO photoInfoDTO;
-
-            using (StringContent content = new StringContent(json, Encoding.UTF8, "application/json")){
-                try {
-                    Log.Trace($"{GetType().Name}.ProcessPhotoAsync(): sent to network");
-                    HttpResponseMessage response = await httpClient.PostAsync(Config.CognitiveEndpoint, content);
-                    Log.Trace($"{GetType().Name}.ProcessPhotoAsync(): received a responce from network", Log.LogFlag.Debug);
-                    if (response.StatusCode.Equals(HttpStatusCode.OK)) {
-                        photoInfoDTO = JsonConvert.DeserializeObject<PhotoInfoDTO>(await response.Content.ReadAsStringAsync());
+            if (! offline) {
+                using (StringContent content = new StringContent(json, Encoding.UTF8, "application/json")) {
+                    try {
+                        Log.Trace($"{GetType().Name}.ProcessPhotoAsync(): sent to network");
+                        HttpResponseMessage response = await httpClient.PostAsync(Config.CognitiveEndpoint, content);
+                        Log.Trace($"{GetType().Name}.ProcessPhotoAsync(): received a responce from network", Log.LogFlag.Debug);
+                        if (response.StatusCode.Equals(HttpStatusCode.OK)) {
+                            photoInfoDTO = JsonConvert.DeserializeObject<PhotoInfoDTO>(await response.Content.ReadAsStringAsync());
+                        }
+                        else {
+                            Log.Trace($"{GetType().Name}.ProcessPhotoAsync(): No faces found and analyzed", Log.LogFlag.Debug);
+                            photoInfoDTO = new PhotoInfoDTO {
+                                FoundAndProcessedFaces = false
+                            };
+                        }
                     }
-                    else {
-                        Log.Trace($"{GetType().Name}.ProcessPhotoAsync(): No faces found and analyzed", Log.LogFlag.Debug);
+                    catch (Exception e) {
+                        Log.Trace($"{GetType().Name}.ProcessPhotoAsync(): Error! Exception message: " + e.Message, Log.LogFlag.Error);
                         photoInfoDTO = new PhotoInfoDTO {
                             FoundAndProcessedFaces = false
                         };
                     }
-                } catch (Exception e) {
-                    Log.Trace($"{GetType().Name}.ProcessPhotoAsync(): Error! Exception message: " + e.Message, Log.LogFlag.Error);
-                    photoInfoDTO = new PhotoInfoDTO {
-                        FoundAndProcessedFaces = false
-                    };
                 }
-                
             }
+            else {
+                photoInfoDTO = new PhotoInfoDTO();
+                photoInfoDTO.Age = "offline";
+                photoInfoDTO.Emotion = "offline";
+                photoInfoDTO.FaceCountAsString = "offline";
+                photoInfoDTO.Gender = "offline";
+                photoInfoDTO.FoundAndProcessedFaces = true;
+            }
+
             Log.Trace($"AFTER {GetType().Name}.ProcessPhotoAsync()", Log.LogFlag.Debug);
             return photoInfoDTO;
         }
