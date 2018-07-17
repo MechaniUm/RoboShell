@@ -6,17 +6,19 @@ using System.Threading.Tasks;
 
 namespace RoboShell
 {
-    public static class Config
-    {
-        public static string EmotionAPIKey = "d8fb34d74fea4c3ab0db3829b0a4fd96"; // "<Your Key Here>";
-        public static string EmotionAPIEndpoint = "https://westus.api.cognitive.microsoft.com/emotion/v1.0";
-        public static string FaceAPIKey = "e408f9b6c8e34aee8f5567dbea67df30";
-        public static string FaceAPIEndpoint = "https://westeurope.api.cognitive.microsoft.com/face/v1.0";
+    public static class Config {
+        public static string CognitiveEndpoint = "https://roboshellcognitivelogic.azurewebsites.net/api/PhotosAnalyzer";
         public static bool RecognizeEmotions = true;
         public static int MinBoringSeconds = 10;
-        public static int MaxBoringSeconds = 11;
-
+        public static int MaxBoringSeconds = 80;
         public static bool Headless = false;
-
+        public static string KBFileName = "test.brc";
+        public static bool analyzeOnlyOneFace = true;
+        public static int[] InputPinsNumbers = { 12, 16, 20, 21 };
+        public static double facesRelation = 1.5;
+        public static double biggestFaceRelativeSize = 0.01;
+        public static bool logArduino = true;
+        public static string GitKBUrl = "https://raw.githubusercontent.com/MechaniUm/OuterSpaceKB/master/kb.brc";
+        public static string GitKBFileName = "kb.brc";
     }
 }

@@ -1,28 +1,30 @@
-﻿using Microsoft.ProjectOxford.Emotion;
-using Newtonsoft.Json;
-using RoboShell.Logic;
+﻿using Newtonsoft.Json;
+using RoboLogic;
+using RuleEngineNet;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.Devices.Enumeration;
+using Windows.Devices.Gpio;
 using Windows.Media.Capture;
 using Windows.Media.Core;
 using Windows.Media.FaceAnalysis;
 using Windows.Media.MediaProperties;
+using Windows.Networking;
+using Windows.Networking.Connectivity;
+using Windows.Storage;
+using Windows.System;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
-using RuleEngineNet;
-using System.Xml.Linq;
-using RoboLogic;
-using Microsoft.ProjectOxford.Face;
-using Windows.UI.Xaml.Media;
-using Windows.System;
-using Microsoft.ProjectOxford.Emotion.Contract;
-using RoboShell.LED;
-using Windows.Devices.Gpio;
+using LogLib;
 
 // Это приложение получает ваше изображение с веб-камеры и
 // распознаёт эмоции на нём, обращаясь к Cognitive Services
@@ -34,55 +36,47 @@ using Windows.Devices.Gpio;
 
 namespace RoboShell
 {
-    
-
     public sealed partial class MainPage : Page
     {
 
         MediaCapture MC;
 
         DispatcherTimer FaceWaitTimer = new DispatcherTimer() { Interval = TimeSpan.FromSeconds(2) };
-        DispatcherTimer DropoutTimer = new DispatcherTimer() { Interval = TimeSpan.FromSeconds(3) };
+        DispatcherTimer PreDropoutTimer = new DispatcherTimer() { Interval = TimeSpan.FromSeconds(6) };
+        DispatcherTimer DropoutTimer = new DispatcherTimer() { Interval = TimeSpan.FromSeconds(15) };
         DispatcherTimer InferenceTimer = new DispatcherTimer() { Interval = TimeSpan.FromSeconds(1) };
-        
+        DispatcherTimer GpioTimer = new DispatcherTimer() { Interval = TimeSpan.FromMilliseconds(500) };
+        DispatcherTimer ArduinoInputTimer = new DispatcherTimer() { Interval = TimeSpan.FromMilliseconds(500) };
 
-        EmotionServiceClient EmoAPI = new EmotionServiceClient(Config.EmotionAPIKey,Config.EmotionAPIEndpoint);
-        FaceServiceClient FaceAPI = new FaceServiceClient(Config.FaceAPIKey,Config.FaceAPIEndpoint);
+        //EmotionServiceClient EmoAPI = new EmotionServiceClient(Config.EmotionAPIKey,Config.EmotionAPIEndpoint);
+        //FaceServiceClient FaceAPI = new FaceServiceClient(Config.FaceAPIKey,Config.FaceAPIEndpoint);
 
+        private static HttpClient httpClient = new HttpClient();
 
         FaceDetectionEffect FaceDetector;
         VideoEncodingProperties VideoProps;
 
-        LEDManager LEDMgr;
 
-        private const int GB_PIN = 5; //good-green
-        private const int RB_PIN = 6; //bad-red
-        private const int YB_PIN = 26;//neutral-yellow
-        private GpioPin greenButton;
-        private GpioPin redButton;
-        private GpioPin yellowButton;
-        DispatcherTimer GpioTimer = new DispatcherTimer() { Interval = TimeSpan.FromMilliseconds(500) };
-        private GpioPinValue greenButtonValue;
+        private GpioPin[] ArduinoPins;
+        private readonly int[] ArduinoPinsNumbers = Config.InputPinsNumbers; //must change
+        GpioController gpio;
 
-        private GpioPinValue redButtonValue;
-        private GpioPinValue yellowButtonValue;
-        // maybe we could use lists?
         private void InitGpio()
         {
-            var gpio = GpioController.GetDefault();
-
+            gpio = GpioController.GetDefault();
+            ArduinoPins = new GpioPin[ArduinoPinsNumbers.Length];
             if (gpio == null)
             {
                 return;
             }
-            greenButton = gpio.OpenPin(GB_PIN);
-            redButton = gpio.OpenPin(RB_PIN);
-            yellowButton = gpio.OpenPin(YB_PIN);
 
-            greenButton.SetDriveMode(GpioPinDriveMode.Input);
-            redButton.SetDriveMode(GpioPinDriveMode.Input);
-            yellowButton.SetDriveMode(GpioPinDriveMode.Input);
-            Trace($"Gpio initialized correctly.");
+            for(int i = 0; i < ArduinoPinsNumbers.Length; i++)
+            {
+                ArduinoPins[i] = gpio.OpenPin(ArduinoPinsNumbers[i]);
+                ArduinoPins[i].SetDriveMode(GpioPinDriveMode.Input);
+            }
+
+            LogLib.Log.Trace($"Gpio initialized correctly.");
 
         }
 
@@ -91,21 +85,16 @@ namespace RoboShell
         bool CaptureAfterEnd = false; // do face capture after speech ends
 
         RuleEngine RE;
-
+        private bool offline = false;
         int BoringCounter = 60;
 
         public MainPage()
         {
+            LogLib.Log.Trace("Logger was initialized");
+            
             this.InitializeComponent();
         }
 
-        
-
-        public void Trace(string s)
-        {
-            System.Diagnostics.Debug.WriteLine(s);
-            if (!Config.Headless) log.Text += s + "\r\n";
-        }
 
         /// <summary>
         /// Первоначальная инициализация страницы
@@ -113,35 +102,8 @@ namespace RoboShell
         protected async override void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
-            var spk = new UWPLocalSpeaker(media,Windows.Media.SpeechSynthesis.VoiceGender.Female);
-            Trace("Loading knowlegdebase");
-//            var xdoc = XDocument.Load("Robot.kb.xml");
-//            RE = XMLRuleEngine.LoadXml(xdoc);
-            var filename = "Robot.kb.brc";
-            RE = BracketedRuleEngine.LoadBracketedKb(filename);
-            RE.SetSpeaker(spk);
-            RE.SetExecutor(ExExecutor);
-            FaceWaitTimer.Tick += StartDialog;
-            DropoutTimer.Tick += FaceDropout;
-            InferenceTimer.Tick += InferenceStep;
-
-            GpioTimer.Tick += ButtonPressed;
-            InitGpio();
-            GpioTimer.Start();
-
-            media.MediaEnded += EndSpeech;
-            CoreWindow.GetForCurrentThread().KeyDown += KeyPressed;
             await Init();
-            LEDMgr = new LEDManager(canvas);
-            if (!Config.Headless)
-            {
-                LEDMgr.AddLED("LE", 8, 8, 0.3, 0.2);
-                LEDMgr.AddLED("RE", 8, 8, 0.7, 0.2);
-                LEDMgr.AddLED("M", 10, 5, 0.5, 0.8);
-                LEDMgr.LEDS["LE"].Load(new LEDImage("eye_blink"));
-                LEDMgr.LEDS["RE"].Load(new LEDImage("eye_blink"));
-                LEDMgr.LEDS["M"].Load(new LEDImage("mouth_neutral"));
-            }
+            Dispatcher.RunAsync(CoreDispatcherPriority.Normal, async () => await InitLongRunning());
         }
 
         private async void EndSpeech(object sender, RoutedEventArgs e)
@@ -156,6 +118,7 @@ namespace RoboShell
         // Function used to execute extensions commands of rule engine
         private async void ExExecutor(string Cmd, string Param)
         {
+            Log.Trace($"BEFORE {GetType().Name}.ExExecutor(): Cmd='{Cmd}', Param='{Param}'", Log.LogFlag.Debug);
             switch (Cmd)
             {
                 case "Recapture":
@@ -171,56 +134,56 @@ namespace RoboShell
                     }
                     else await RecognizeFace();
                     break;
-                case "LED":
-                    var t1 = Param.Split(':');
-                    LEDMgr.LEDS[t1[0]].Load(new LEDImage(t1[1]));
-                    break;
             }
+            Log.Trace($"AFTER {GetType().Name}.ExExecutor(): Cmd='{Cmd}', Param='{Param}'", Log.LogFlag.Debug);
         }
 
-        private void ButtonPressed(object sender, object e)
+        private static int[] ynCancel = { 0, 1, 0, 0 };
+        private static int[] ynReq = { 1, 0, 1, 1 };
+        private static GPIO yesNoRequestGPIO = new GPIO(ynReq, 2000, 100);
+        private static GPIO yesNoCancelGPIO = new GPIO(ynCancel, 2000, 100);
+        private void ArduinoInput(object sender, object e)
         {
-            yellowButtonValue = yellowButton.Read();
-            greenButtonValue = greenButton.Read();
-            redButtonValue = redButton.Read();
-            //if (redButtonValue == GpioPinValue.Low)
-            //{
-            //    var st = "Red_button";
-            //    Trace($"Initiating event {st}");
-            //    RE.SetVar("Event", st);
-            //    RE.Step();
-            //}
-            //else if (yellowButtonValue == GpioPinValue.Low)
-            //{
-            //    var st = "Yellow_button";
-            //    Trace($"Initiating event {st}");
-            //    RE.SetVar("Event", st);
-            //    RE.Step();
-            //}
-            /*else*/ if (greenButtonValue == GpioPinValue.Low)
+            string input = "";
+            for (int i = 0; i < ArduinoPinsNumbers.Length; ++i)
             {
-                var st = "Green_button";
-                Trace($"Initiating event {st}");
-                RE.SetVar("Event", st);
-                RE.Step();
+                if (ArduinoPins[i].Read() == GpioPinValue.High)
+                {
+                    input += "1";
+                } else
+                {
+                    input += "0";
+                }
             }
+
+            if (input != "0000")
+            {
+                if (Config.logArduino)
+                {
+                    LogLib.Log.Trace($"Received: {input}");
+                }
+            }
+            if (RE.State.ContainsKey("isPlaying") && RE.State["isPlaying"] == "True" && (input == "0100" || input == "0010" || input == "0001")) RE.SetVar("ArduinoInput", "0000");
+            else RE.SetVar("ArduinoInput", input);
         }
+
         private void KeyPressed(CoreWindow sender, KeyEventArgs args)
         {
             if (args.VirtualKey >= VirtualKey.Number0 &&
                 args.VirtualKey <= VirtualKey.Number9)
             {
                 var st = $"Key_{args.VirtualKey - VirtualKey.Number0}";
-                Trace($"Initiating event {st}");
-                RE.SetVar("Event", st);
-                RE.Step();
+                //LogLib.Log.Trace($"Initiating event {st}");
+                //RE.SetVar("Event", st);
+                RE.SetVar("KeyboardIn", st);
+//                RE.Step();
             }
             // S = print state
             if (args.VirtualKey == VirtualKey.S)
             {
                 foreach(var x in RE.State)
                 {
-                    Trace($" > {x.Key} -> {x.Value}");
+                    LogLib.Log.Trace($" > {x.Key} -> {x.Value}");
                 }
             }
         }
@@ -229,12 +192,12 @@ namespace RoboShell
 
         private void InferenceStep(object sender, object e)
         {
-            if (media.CurrentState == MediaElementState.Playing) return;
+            //if (media.CurrentState == MediaElementState.Playing) return;
             if (!InDialog) BoringCounter--;
             if (BoringCounter==0)
             {
                 RE.SetVar("Event", "Ping");
-                Trace("Ping event intiated");
+                LogLib.Log.Trace("Ping event intiated");
                 BoringCounter = Rnd.Next(Config.MinBoringSeconds, Config.MaxBoringSeconds);
             }
             var s = RE.StepUntilLongRunning();
@@ -245,17 +208,113 @@ namespace RoboShell
         /// </summary>
         private async Task Init()
         {
-            Trace("Initializing media...");
+            LogLib.Log.Trace("BEFORE initialize MediaCapture");
             MC = new MediaCapture();
             var cameras = await DeviceInformation.FindAllAsync(DeviceClass.VideoCapture);
             var camera = cameras.Last();
-            var settings = new MediaCaptureInitializationSettings() { VideoDeviceId = camera.Id };
+            var settings = new MediaCaptureInitializationSettings() { VideoDeviceId = camera.Id, StreamingCaptureMode = StreamingCaptureMode.Video};
+            
+        
             await MC.InitializeAsync(settings);
+            var resolutions = MC.VideoDeviceController.GetAvailableMediaStreamProperties(MediaStreamType.Photo).Select(x => x as VideoEncodingProperties).OrderBy(x => x.Height * x.Width);
+            VideoEncodingProperties maxRes = resolutions.FirstOrDefault();
+            for (int i = 0; i < resolutions.Count(); i++) {
+                if (resolutions.ElementAt(i).Width >= 320) {
+                    maxRes = resolutions.ElementAt(i);
+                    break;
+                }
+            }
+            await MC.VideoDeviceController.SetMediaStreamPropertiesAsync(MediaStreamType.Photo, maxRes);
 
             if (!Config.Headless)
             {
                 ViewFinder.Source = MC;
             }
+
+
+
+            LogLib.Log.Trace("AFTER initialize MediaCapture");
+
+
+        }
+
+
+
+        private async Task InitLongRunning() {
+            var spk = new UWPLocalSpeaker(media, Windows.Media.SpeechSynthesis.VoiceGender.Female);
+
+            string localIp = GetLocalIp();
+            if (localIp == null) localIp = "127.0.0.1";
+            if (localIp == "") localIp = "127.0.0.1";
+            spk.Speak($"мой адрес не дом и не улица, мой адрес {localIp} и точка");
+            CoreWindow.GetForCurrentThread().KeyDown += KeyPressed;
+            Log.Trace("BEFORE receive actual kb");
+
+            try {
+                HttpResponseMessage httpResponseMessage = await httpClient.GetAsync("https://github.com/");
+
+                if (httpResponseMessage.IsSuccessStatusCode) {
+
+                    byte[] git_kb = await httpClient.GetByteArrayAsync(Config.GitKBUrl);
+
+                    StorageFolder storageFolder = ApplicationData.Current.LocalFolder;
+                    StorageFile sampleFile =
+                        await storageFolder.CreateFileAsync(Config.GitKBFileName, CreationCollisionOption.ReplaceExisting);
+                    await Windows.Storage.FileIO.WriteBytesAsync(sampleFile, git_kb);
+                    RE = BracketedRuleEngine.LoadBracketedKb(sampleFile);
+                    Log.Trace("Using actual git's config version");
+                }
+                else {
+                    //try {
+                    //    StorageFolder storageFolder = ApplicationData.Current.LocalFolder;
+                    //    StorageFile sampleFile = await storageFolder.GetFileAsync(Config.GitKBFileName);
+                    //    RE = BracketedRuleEngine.LoadBracketedKb(sampleFile);
+                    //    Log.Trace("Using local git's config version");
+                    //    offline = true;
+                    //}
+                    //catch (Exception) {
+                        RE = BracketedRuleEngine.LoadBracketedKb(Config.KBFileName);
+                        Log.Trace("Using local nongit config version");
+                        offline = true;
+                    //}
+                }
+            }
+            catch (Exception)
+            {
+                
+                //try
+                //{
+                //    StorageFolder storageFolder = ApplicationData.Current.LocalFolder;
+                //    StorageFile sampleFile = await storageFolder.GetFileAsync(Config.GitKBFileName);
+                //    RE = BracketedRuleEngine.LoadBracketedKb(sampleFile);
+                //    Log.Trace("Using local git's config version");
+                //    offline = true;
+                //}
+                //catch (Exception)
+                //{
+                    RE = BracketedRuleEngine.LoadBracketedKb(Config.KBFileName);
+                    Log.Trace("Using local nongit config version");
+                    offline = true;
+                //}
+            }
+            Log.Trace("AFTER receive actual kb");
+
+
+            RE.SetSpeaker(spk);
+            RE.Initialize();
+            RE.SetExecutor(ExExecutor);
+            FaceWaitTimer.Tick += StartDialog;
+            DropoutTimer.Tick += FaceDropout;
+            PreDropoutTimer.Tick += PreDropout;
+            InferenceTimer.Tick += InferenceStep;
+            InitGpio();
+            if (gpio != null)
+            {
+                ArduinoInputTimer.Tick += ArduinoInput;
+                ArduinoInputTimer.Start();
+            }
+            yesNoCancelGPIO.Execute(RE.State);
+            media.MediaEnded += EndSpeech;
 
             // Create face detection
             var def = new FaceDetectionEffectDefinition();
@@ -264,13 +323,35 @@ namespace RoboShell
             FaceDetector = (FaceDetectionEffect)(await MC.AddVideoEffectAsync(def, MediaStreamType.VideoPreview));
             FaceDetector.FaceDetected += FaceDetectedEvent;
             FaceDetector.DesiredDetectionInterval = TimeSpan.FromMilliseconds(100);
-            FaceDetector.Enabled = true;
-            Trace("Ready to start face recognition");
+            LogLib.Log.Trace("Ready to start face recognition");
             await MC.StartPreviewAsync();
-            Trace("Face Recognition Started");
+            LogLib.Log.Trace("Face Recognition Started");
             var props = MC.VideoDeviceController.GetMediaStreamProperties(MediaStreamType.VideoPreview);
             VideoProps = props as VideoEncodingProperties;
+            FaceDetector.Enabled = true;
+
+            InferenceTimer.Start();
+
         }
+
+
+        public static string GetLocalIp(HostNameType hostNameType = HostNameType.Ipv4)
+        {
+            var icp = NetworkInformation.GetInternetConnectionProfile();
+
+            if (icp?.NetworkAdapter == null) return null;
+            var hostname =
+                NetworkInformation.GetHostNames()
+                    .FirstOrDefault(
+                        hn =>
+                            hn.Type == hostNameType &&
+                            hn.IPInformation?.NetworkAdapter != null &&
+                            hn.IPInformation.NetworkAdapter.NetworkAdapterId == icp.NetworkAdapter.NetworkAdapterId);
+
+            // the ip address
+            return hostname?.CanonicalName;
+        }
+
 
         /// <summary>
         /// Срабатывает при локальном обнаружении лица на фотографии.
@@ -278,7 +359,8 @@ namespace RoboShell
         /// </summary>
         private async void FaceDetectedEvent(FaceDetectionEffect sender, FaceDetectedEventArgs args)
         {
-            await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => HighlightDetectedFace(args.ResultFrame.DetectedFaces.FirstOrDefault()));
+            Dispatcher.RunAsync(CoreDispatcherPriority.Normal, async () => await HighlightDetectedFaces(args.ResultFrame.DetectedFaces));
+//            await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => HighlightDetectedFace(args.ResultFrame.DetectedFaces.FirstOrDefault()));
         }
 
         /// <summary>
@@ -286,9 +368,8 @@ namespace RoboShell
         /// </summary>
         /// <param name="face">Обнаруженное лицо</param>
         /// <returns></returns>
-        private async Task HighlightDetectedFace(DetectedFace face)
-        {
-            double cx=0, cy=0;
+        private async Task HighlightDetectedFace(DetectedFace face) {
+            double cx =0, cy=0;
             if (!Config.Headless)
             {
                 cx = ViewFinder.ActualWidth / VideoProps.Width;
@@ -303,11 +384,13 @@ namespace RoboShell
                 {
                     IsFacePresent = false;
                     DropoutTimer.Start();
+                    PreDropoutTimer.Start();
                 }
             }
             else
             {
                 DropoutTimer.Stop();
+                PreDropoutTimer.Stop();
                 if (!Config.Headless)
                 {
                     FaceRect.Margin = new Thickness(cx * face.FaceBox.X, cy * face.FaceBox.Y, 0, 0);
@@ -323,12 +406,42 @@ namespace RoboShell
             }
         }
 
+        private async Task HighlightDetectedFaces(IReadOnlyList<DetectedFace> faces) {
+            var tmp = (from face in faces orderby face.FaceBox.Width*face.FaceBox.Height descending select face).ToList();
+            
+            if (tmp.Any() && tmp[0].FaceBox.Width * tmp[0].FaceBox.Height > VideoProps.Width*VideoProps.Height*Config.biggestFaceRelativeSize){
+                var biggest = tmp[0];
+                int facesCnt = 1;
+                for (; facesCnt < tmp.Count; facesCnt++) {
+                    if (faces[facesCnt].FaceBox.Height * faces[facesCnt].FaceBox.Width * Config.facesRelation < biggest.FaceBox.Height * biggest.FaceBox.Width) {
+                        break;
+                    }
+                }
+                RE.SetVar("FaceCount", facesCnt.ToString());
+                if (Config.analyzeOnlyOneFace) {
+                    if (facesCnt == 1) {
+                        Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => HighlightDetectedFace(biggest));
+                    }
+                    else {
+                        Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => HighlightDetectedFace(null));
+                    }
+                }
+                else {
+                    Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => HighlightDetectedFace(biggest));
+                }
+            }
+            else {
+                Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => HighlightDetectedFace(null));
+            }
+        }
+
         void FaceDropout(object sender, object e)
         {
             DropoutTimer.Stop();
+            PreDropoutTimer.Stop();
             InDialog = false;
             BoringCounter = Rnd.Next(Config.MinBoringSeconds, Config.MaxBoringSeconds);
-            Trace("Face dropout initiated");
+            LogLib.Log.Trace("Face dropout initiated");
             InferenceTimer.Stop();
             RE.Reset();
             RE.SetVar("Event", "FaceOut");
@@ -337,75 +450,158 @@ namespace RoboShell
         }
 
 
-        async void StartDialog(object sender, object e)
+        void PreDropout(object sender, object e)
         {
-            if (!IsFacePresent) return;
-            InDialog = true;
-            Trace("Calling face recognition");
-            var res = await RecognizeFace();
-            if (res)
-            {
-                Trace("Initiating FaceIn Event");
-                RE.SetVar("Event", "FaceIn");
-                RE.Step();
-                InferenceTimer.Start();
-            }
+            PreDropoutTimer.Stop();
+            LogLib.Log.Trace("Face PRE dropout initiated");
+            RE.SetVar("Event", "FacePreOut");
         }
 
-        async Task<bool> RecognizeFace()
-        { 
-            if (!IsFacePresent) return false;
-            FaceWaitTimer.Stop(); 
-            var ms = new MemoryStream();
-            await MC.CapturePhotoToStreamAsync(ImageEncodingProperties.CreateJpeg(), ms.AsRandomAccessStream());
+        async void StartDialog(object sender, object e)
+        {
+            Dispatcher.RunAsync(CoreDispatcherPriority.Normal, async () => {
+                if (!IsFacePresent) return;
+                RE.SetVar("Event", "FaceIn");
+                RE.Step();
+                InDialog = true;
+                LogLib.Log.Trace("Calling face recognition");
+                var res = await RecognizeFace();
+                if (res)
+                {
+                    LogLib.Log.Trace("Initiating FaceRecognized Event");
+                    RE.SetVar("Event", "FaceRecognized");
+                    RE.Step();
+                    if (!InferenceTimer.IsEnabled) InferenceTimer.Start(); //TODO check
+                }
+            });
+            
+        }
 
-            ms.Position = 0L;
-            var Fce = await FaceAPI.DetectAsync(ms.NewStream(),false,false,new FaceAttributeType[] { FaceAttributeType.Age, FaceAttributeType.Gender });
-
-            Emotion[] Emo = null;
-
-            if (Config.RecognizeEmotions)
-            {
-                ms.Position = 0L;
-                Emo = await EmoAPI.RecognizeAsync(ms.NewStream());
+        private static long lastRecognizingTimeStampMillis = 0;
+        async Task<bool> RecognizeFace() {
+            Log.Trace($"BEFORE {GetType().Name}.RecognizeFace()", Log.LogFlag.Debug);
+            long currMilliseconds = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            if (currMilliseconds - 1000L < Interlocked.Exchange(ref lastRecognizingTimeStampMillis, currMilliseconds)) {
+                Log.Trace($"IN {GetType().Name}.RecognizeFace() BEFORE will wait", Log.LogFlag.Debug);
+                await Task.Delay(TimeSpan.FromMilliseconds(1000));
+                Interlocked.Exchange(ref lastRecognizingTimeStampMillis, DateTimeOffset.Now.ToUnixTimeMilliseconds());
+                Log.Trace($"IN {GetType().Name}.RecognizeFace() AFTER will wait", Log.LogFlag.Debug);
             }
 
-            if (Fce != null && Fce.Length > 0)
-            {
-                int males = 0, females = 0, count = 0;
-                double sumage = 0;
-                foreach(var f in Fce)
-                {
-                    if (f.FaceAttributes.Gender == "male") males++; else females++;
-                    count++;
-                    sumage += f.FaceAttributes.Age++;
+            if (!IsFacePresent) {
+                Log.Trace($"AFTER {GetType().Name}.RecognizeFace(): IsFacePresent='false'", Log.LogFlag.Debug);
+                return false;
+            }
+
+            Log.Trace($"IN {GetType().Name}.RecognizeFace() BEFORE check Event state", Log.LogFlag.Debug);
+            if (RE.State.ContainsKey("Event")) {
+                if (RE.State["Event"] == "FacePreOut") {
+                    RE.SetVar("Event", "FaceIn");
                 }
-                RE.SetVar("FaceCount", count.ToString());
-                if (males == 0 && females > 0) RE.SetVar("Gender", "F");
-                if (males > 0 && females == 0) RE.SetVar("Gender", "M");
-                if (males > 0 && females > 0) RE.SetVar("Gender", males > females ? "MF" : "FM");
-                RE.SetVar("Age", ((int)(sumage / count)).ToString());
-                if (Config.RecognizeEmotions)
-                {
-                    var em = Emo.Select(x=>x.Scores).AvEmotions().MainEmotion();
-                    RE.SetVar("Emotion", em.Item1);
+            }
+            Log.Trace($"IN {GetType().Name}.RecognizeFace() AFTER check Event state", Log.LogFlag.Debug);
+
+            FaceWaitTimer.Stop();
+
+            var photoAsStream = new MemoryStream();
+            Log.Trace($"IN {GetType().Name}.RecognizeFace() BEFORE capture a photo", Log.LogFlag.Debug);
+            await MC.CapturePhotoToStreamAsync(ImageEncodingProperties.CreateJpeg(), photoAsStream.AsRandomAccessStream());
+            Log.Trace($"IN {GetType().Name}.RecognizeFace() AFTER capture a photo, BEFORE serialized", Log.LogFlag.Debug);
+            byte[] photoAsByteArray = photoAsStream.ToArray();
+            Log.Trace($"IN {GetType().Name}.RecognizeFace() AFTER capture a photo, AFTER serialized", Log.LogFlag.Debug);
+
+
+            Log.Trace($"IN {GetType().Name}.RecognizeFace() BEFORE ProcessPhotoAsync()", Log.LogFlag.Debug);
+            PhotoInfoDTO photoInfo = await ProcessPhotoAsync(photoAsByteArray, Config.RecognizeEmotions);
+            Log.Trace($"IN {GetType().Name}.RecognizeFace() AFTER ProcessPhotoAsync()", Log.LogFlag.Debug);
+            if (photoInfo.FoundAndProcessedFaces) {
+                if (photoInfo.Age == "offline") {
+                    RE.SetVar("FaceCount", "1");
+                    RE.SetVar("Gender", "offline");
+                    RE.SetVar("Age", "-1");
+                    RE.SetVar("Emotion", "offline");
+                    RE.SetVar("offline", "True");
                 }
-                Trace($"Face data: #faces={RE.State.Eval("FaceCount")}, age={RE.State.Eval("Age")}, gender={RE.State.Eval("Gender")}, emo={RE.State.Eval("Emotion")}");
+                else {
+                    RE.SetVar("FaceCount", photoInfo.FaceCountAsString);
+                    RE.SetVar("Gender", photoInfo.Gender);
+                    RE.SetVar("Age", photoInfo.Age);
+                    if (Config.RecognizeEmotions) {
+                        RE.SetVar("Emotion", photoInfo.Emotion);
+                    }
+                }
+
+                Log.Trace($"AFTER {GetType().Name}.RecognizeFace(): FaceCount='{RE.State.Eval("FaceCount")}', " +
+                            $"Age='{RE.State.Eval("Age")}', Gender='{RE.State.Eval("Gender")}', Emotion='{RE.State.Eval("Emotion")}'",
+                    Log.LogFlag.Debug);
                 return true;
             }
-            else
-            {
+            else {
                 FaceWaitTimer.Start();
+                Log.Trace($"AFTER {GetType().Name}.RecognizeFace(): FaceCount='0'", Log.LogFlag.Debug);
                 return false;
             }
         }
 
-        private void MainPage_Unloaded(object sender, object args)
-        {
-            yellowButton.Dispose();
-            greenButton.Dispose();
-            redButton.Dispose();
+
+        async Task<PhotoInfoDTO> ProcessPhotoAsync(byte[] photoAsByteArray, bool recognizeEmotions) {
+            Log.Trace($"BEFORE {GetType().Name}.ProcessPhotoAsync()", Log.LogFlag.Debug);
+            PhotoToProcessDTO photoToProcessDTO = new PhotoToProcessDTO {
+                PhotoAsByteArray = photoAsByteArray,
+                RecognizeEmotions = recognizeEmotions
+            };
+            var json = JsonConvert.SerializeObject(photoToProcessDTO);
+
+            PhotoInfoDTO photoInfoDTO;
+            if (! offline) {
+                using (StringContent content = new StringContent(json, Encoding.UTF8, "application/json")) {
+                    try {
+                        Log.Trace($"{GetType().Name}.ProcessPhotoAsync(): sent to network");
+                        HttpResponseMessage response = await httpClient.PostAsync(Config.CognitiveEndpoint, content);
+                        Log.Trace($"{GetType().Name}.ProcessPhotoAsync(): received a responce from network", Log.LogFlag.Debug);
+                        if (response.StatusCode.Equals(HttpStatusCode.OK)) {
+                            photoInfoDTO = JsonConvert.DeserializeObject<PhotoInfoDTO>(await response.Content.ReadAsStringAsync());
+                        }
+                        else {
+                            Log.Trace($"{GetType().Name}.ProcessPhotoAsync(): No faces found and analyzed", Log.LogFlag.Debug);
+                            photoInfoDTO = new PhotoInfoDTO {
+                                FoundAndProcessedFaces = false
+                            };
+                        }
+                    }
+                    catch (Exception e) {
+                        Log.Trace($"{GetType().Name}.ProcessPhotoAsync(): Error! Exception message: " + e.Message, Log.LogFlag.Error);
+                        photoInfoDTO = new PhotoInfoDTO {
+                            FoundAndProcessedFaces = false
+                        };
+                    }
+                }
+            }
+            else {
+                photoInfoDTO = new PhotoInfoDTO();
+                photoInfoDTO.Age = "offline";
+                photoInfoDTO.Emotion = "offline";
+                photoInfoDTO.FaceCountAsString = "offline";
+                photoInfoDTO.Gender = "offline";
+                photoInfoDTO.FoundAndProcessedFaces = true;
+            }
+
+            Log.Trace($"AFTER {GetType().Name}.ProcessPhotoAsync()", Log.LogFlag.Debug);
+            return photoInfoDTO;
         }
+    }
+
+    class PhotoToProcessDTO {
+        public byte[] PhotoAsByteArray { get; set; }
+        public bool RecognizeEmotions { get; set; }
+    }
+
+    class PhotoInfoDTO {
+        public string FaceCountAsString { get; set; }
+        public string Gender { get; set; }
+        public string Age { get; set; }
+        public string Emotion { get; set; }
+        public bool FoundAndProcessedFaces { get; set; }
     }
 }
 
